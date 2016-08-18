@@ -1,0 +1,11 @@
+--- a/tests.c
++++ b/tests.c
+@@ -26,7 +26,7 @@
+ int quiet = 0;
+ char progress[] = "-\\|/";
+
+-void inline __dprintf(const char *format, ...) {
++void __dprintf(const char *format, ...) {
+     if(!quiet) {
+         va_list ap;
+         va_start(ap, format);

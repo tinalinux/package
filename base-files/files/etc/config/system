@@ -1,0 +1,13 @@
+config system
+	option hostname	TinaLinux
+	option timezone	Asia/Shanghai
+	option timezone CST-8
+
+config timeserver ntp
+	list server ntp5.aliyun.com
+	list server 0.openwrt.pool.ntp.org
+	list server 0.cn.pool.ntp.org
+	option enable 1
+	option enable_server 0
+
+

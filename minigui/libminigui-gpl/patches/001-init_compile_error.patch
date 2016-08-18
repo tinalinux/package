@@ -1,0 +1,64 @@
+--- a/src/misc/nposix.c
++++ b/src/misc/nposix.c
+@@ -22,6 +22,7 @@
+ 
+ #ifdef HAVE_TIME
+ #include <time.h>
++#include <sys/time.h>
+ #endif
+ 
+ #ifndef HAVE_STRDUP
+--- a/src/newgal/fbcon/pci_smi.c
++++ b/src/newgal/fbcon/pci_smi.c
+@@ -10,7 +10,7 @@
+ */
+ 
+ #include <stdio.h>
+-#include <error.h>
++/*#include <error.h>*/
+ #include <string.h>
+ 
+ /*#define _DEBUG*/
+--- a/etc/Makefile.am
++++ b/etc/Makefile.am
+@@ -1,7 +1,7 @@
+ # The directory where the data files will be installed
+ 
+ install-data-local:
+-	if [ ! -d $(DESTDIR)/$(prefix)/etc ]; then $(INSTALL) -d $(DESTDIR)$(prefix)/etc; fi
++	if [ ! -d $(DESTDIR)/$(prefix)/etc ]; then $(INSTALL) -d $(DESTDIR)/$(prefix)/etc; fi
+ 
+ ##if MGLIB_MVFB
+ ##	$(INSTALL_DATA) $(abs_top_srcdir)/etc/mvfb.cfg $(prefix)/etc/mvfb.cfg
+--- a/src/newgdi/gdi.c
++++ b/src/newgdi/gdi.c
+@@ -89,7 +89,7 @@ static void dc_InitMemDCFrom (PDC pdc, c
+ static void dc_InitScreenDC (PDC pdc, GAL_Surface* surface);
+ 
+ /************************** inline functions *********************************/
+-inline void WndRect(HWND hWnd, PRECT prc)
++void WndRect(HWND hWnd, PRECT prc)
+ {
+     PCONTROL pParent;
+     PCONTROL pCtrl;
+@@ -122,7 +122,7 @@ inline void WndRect(HWND hWnd, PRECT prc
+     }
+ }
+ 
+-inline void WndClientRect(HWND hWnd, PRECT prc)
++void WndClientRect(HWND hWnd, PRECT prc)
+ {
+     PCONTROL pCtrl;
+     PCONTROL pParent;
+--- a/src/kernel/sharedres.c
++++ b/src/kernel/sharedres.c
+@@ -25,6 +25,9 @@
+ #include <sys/time.h>
+ #include <sys/file.h>
+ #include <sys/mman.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
+ 
+ #include "minigui.h"
+ #include "gdi.h"
