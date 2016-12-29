@@ -1,0 +1,183 @@
+<HTML>
+<HEAD ID="HEAD">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html charset=utf-8">
+
+<META NAME="version" CONTENT="yyyy-mm-dd">
+
+
+<TITLE>R40 DragonStress Report</TITLE>
+<SCRIPT TYPE="text/javascript">
+	function getRowObj(obj) {
+	var i=0;
+	while(obj.tagName.toLowerCase() != "tr") {
+		obj = obj.parentNode;
+		if(obj.tagName.toLowerCase() == "table")
+			return null;
+	}
+	return obj;
+	}
+	function getRowNo(obj) {
+	var trObj = getRowObj(obj);
+	var trArr = trObj.parentNode.children;
+	for(var trNo=0;trNo!=trArr.length;trNo++) {
+		if(trObj == trObj.parentNode.children[trNo])
+			return trNo;
+		}
+	}
+	function GetSrcColor(obj) {
+	if(getRowNo(obj) % 2 == 0)
+		return "#D4E3E5";
+	else
+		return "#C3DDE0";
+	}
+	function SetTableSrcColor(obj) {
+		obj.style.backgroundColor=GetSrcColor(obj);
+	}
+	function AltRowsColor(id){
+		if(document.getElementsByTagName){
+			var table = document.getElementById(id);
+			var rows = table.getElementsByTagName("tr");
+			for(i = 0; i != rows.length; i++){
+				if(i % 2 == 0){
+					rows[i].className = "rowcolor1";
+				}else{
+					rows[i].className = "rowcolor2";
+				}
+			}
+		}
+	}
+	function NavOut(ee) {
+		var target = ee.relatedTarget || ee.toElement;
+		if(target.id != "navigation_list" &&
+			target.id != "navigation" &&
+			target.id != "link")
+			navigation_list.style.visibility = "hidden";
+	}
+</SCRIPT>
+<STYLE TYPE="text/css">
+	h1 {
+		color:black;
+		background-color:#DDDDDD;
+		text-align:center;
+		font-size:35px;
+		font-family:verdana;
+		padding:10px;
+	}
+	h2 {
+		text-align:left;
+		font-size:30px;
+		font-family:verdana;
+	}
+	h3 {
+		text-align:left;
+		font-size:30px;
+		font-family:verdana;
+	}
+	body {
+		background-color:#CCCCCC;
+		padding:20px;
+		min-width: 800px;
+	}
+	hr {
+		border:2px dashed #789FC1;
+		height:3px;
+		width:100%;
+		size:10;
+	}
+	table {
+		margin:5px;
+		font-size:15;
+		color:#333333;
+		border-width:1px;
+		border-color:#A9C6C9;
+		border-collapse:collapse;
+	}
+	th {
+		text-align:center;
+		border-width:1px;
+		margin:5px;
+		padding:5px;
+		border-style:solid;
+		border-color:#A9C6C9;
+	}
+	tr {
+		text-align:center;
+	}
+	td {
+		border-width:1px;
+		margin:1px;
+		padding:5px;
+		border-style:solid;
+		border-color:#A9C6C9;
+	}
+	.rowcolor1 {
+		background-color:#D4E3E5;
+	}
+	.rowcolor2 {
+		background-color:#C3DDE0;
+	}
+	.fail_module {
+		float:left;
+		margin:5px;
+		padding:10px;
+		border:1px solid #99CC99;
+		border-radius:10px;
+		background-color:#99CC99;
+	}
+	.module {
+		margin:20px;
+		border-radius:15px;
+	}
+	.module_name {
+		margin:5px;
+		font-weight:bold;
+		font-size:15px;
+		font-family:verdana;
+	}
+	.nav {
+		position:fixed;
+		left:80%;
+		top:20%;
+		z-index:1;
+	}
+	.nav_name {
+		margin:2px;
+		padding:10px;
+		border-radius:10px;
+		background-color:#CCFFFF;
+		z-index:2;
+		display:inline-block;
+	}
+	.nav_item {
+		z-index:3;
+		margin:1px;
+		padding:5px;
+		border-radius:10px;
+		background-color:#DDDDDD;
+		border:2px solid #99CC99;
+		display:inline-block;
+	}
+</STYLE>
+</HEAD>
+<BODY ID="BODY">
+<H1><A NAME="TOP_MODULE">R40 DragonStress Report</A></H1><DIV ID="navigation" CLASS="nav" ONMOUSEOUT="NavOut(event)">
+<SPAN CLASS="nav_name" ONMOUSEOVER="navigation_list.style.visibility='visible'">Navigation</SPAN>
+<DIV ID="navigation_list" STYLE="visibility:hidden">
+
+</DIV></DIV><P>Platform: <B ID="PLATFORM">R40-azalea-m2ultra</B></P>
+<P>Date: <B ID="DATE">2016-10-24</B></P>
+<P>Time: <B ID="TIME">14:16:16</B></P>
+<BR>
+<H2>Test Result</H2>
+<P>Total <I ID="ROUNDS" STYLE=color:red>15</I> rounds test.</P>
+<P><B ID="TEST_RESULT" STYLE=color:red>Testing...</B></P>
+<P ID="FAIL_MODULE"></P>
+<BR>
+<BR>
+<BR>
+<BR>
+<H3>Test Info</H3>
+<HR>
+
+</BODY>
+</HTML>

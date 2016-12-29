@@ -1,0 +1,11 @@
+--- a/tools/ts_uinput.c
++++ b/tools/ts_uinput.c
+@@ -270,7 +270,7 @@ static int setup_uinput(struct data_t *d
+ 	}
+ 
+ 	memset(&uidev, 0, sizeof(uidev));
+-	snprintf(uidev.name, UINPUT_MAX_NAME_SIZE, data->uinput_name);
++	strncpy(uidev.name, data->uinput_name, UINPUT_MAX_NAME_SIZE);
+ 	uidev.id.bustype = BUS_VIRTUAL;
+ 
+ 	memset(bit, 0, sizeof(bit));
