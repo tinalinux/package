@@ -1,0 +1,38 @@
+--- a/qtbase/config.tests/unix/libinput/libinput.pro
++++ b/qtbase/config.tests/unix/libinput/libinput.pro
+@@ -1,4 +1,6 @@
+ SOURCES = libinput.cpp
+ CONFIG -= qt
+ LIBS += $$QMAKE_LIBS_LIBINPUT
++LIBS += $$QMAKE_LIBS_LIBUDEV
++INCLUDEPATH += $$QMAKE_INCDIR_LIBUDEV
+ INCLUDEPATH += $$QMAKE_INCDIR_LIBINPUT
+--- a/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_mali/qeglfsmaliintegration.cpp
++++ b/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_mali/qeglfsmaliintegration.cpp
+@@ -42,10 +42,10 @@
+ 
+ QT_BEGIN_NAMESPACE
+ 
+-struct fbdev_window {
+-    unsigned short width;
+-    unsigned short height;
+-};
++//struct fbdev_window {
++    //unsigned short width;
++    //unsigned short height;
++//};
+ 
+ void QEglFSMaliIntegration::platformInit()
+ {
+--- a/qtserialport/src/serialport/serialport.pro
++++ b/qtserialport/src/serialport/serialport.pro
+@@ -1,6 +1,9 @@
+ TARGET = QtSerialPort
+ QT = core-private
+ 
++LIBS += $$QMAKE_LIBS_LIBUDEV
++INCLUDEPATH += $$QMAKE_INCDIR_LIBUDEV
++
+ QMAKE_DOCS = $$PWD/doc/qtserialport.qdocconf
+ 
+ config_ntddmodm: DEFINES += QT_NO_REDEFINE_GUID_DEVINTERFACE_MODEM

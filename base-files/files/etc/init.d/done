@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+START=95
+DEPEND=fstab,nativepower
+boot() {
+	mount_root done
+	rm -f /sysupgrade.tgz
+
+	# process user commands
+	[ -f /etc/rc.local ] && {
+		sh /etc/rc.local
+	}
+
+	# set leds to normal state
+	. /etc/diag.sh
+	set_state done
+	dbus-send --system --type=method_call --print-reply --dest=nativepower.dbus.server /nativepower/service/method  nativepower.method.interface.method  uint32:7 uint32:0
+}

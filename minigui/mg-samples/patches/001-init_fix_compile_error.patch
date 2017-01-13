@@ -1,0 +1,11 @@
+--- a/ctrl_dlg/dlgdemo.c
++++ b/ctrl_dlg/dlgdemo.c
+@@ -37,7 +37,7 @@
+ #include <minigui/gdi.h>
+ #include <minigui/window.h>
+ #include <minigui/control.h>
+-#include <mgplus/mgplus.h>
++/*#include <mgplus/mgplus.h>*/
+ 
+ #include "dlgdemo.h"
+ #include "resouce.h"

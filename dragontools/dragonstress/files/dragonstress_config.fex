@@ -1,0 +1,102 @@
+;-------------------------------------------------------------------------------
+;
+; [example]
+; display_name= "Example"
+; activated   = 1
+; program     = "example.sh"
+; category    = 0
+; run_type    = 0
+;
+; display_name
+;   pc software dragonst display name , max:64bytes
+; activated
+;   0: un-activated this testcase
+;   1: activated this testcase
+;
+; program
+;   testcase exec program name,max:16bytes
+;
+; category
+;   0: auto test mode  testcase
+;   1: manual test mode testcase
+;
+; run_type
+;   0: waiting for  pre-testcase finish
+;   1: do not waiting pre-testcase finish
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; test_size
+;   unit: MB
+;-------------------------------------------------------------------------------
+[DRAGONSTRESS]
+round       = 2
+result_path = "/mnt/UDISK"
+
+[cpu]
+display_name= "CPU"
+activated   = 0
+program     = "StressCPU.sh"
+category    = 0
+run_type    = 1
+platform    = r40
+workers     = 5
+timeout     = "1m"
+outlogname  = "outcpu"
+errlogname  = "errcpu"
+
+
+[dram]
+display_name= "DDR"
+activated   = 0
+program     = "StressDDR.sh"
+category    = 0
+run_type    = 1
+workers     = 2
+dram_size   = 1024
+test_size   = 10
+platform    = r40
+outlogname  = "outddr"
+errlogname  = "errddr"
+
+
+[io]
+display_name= "IO"
+activated   = 0
+program     = "StressIO.sh"
+category    = 0
+run_type    = 1
+workers     = 2
+timeout     = "1m"
+test_size   = "128M"
+test_path   = "/mnt/UDISK"
+outlogname  = "outio"
+errlogname  = "errio"
+
+[gpu]
+display_name= "GPU"
+activated   = 0
+program     = "StressGPU.sh"
+category    = 0
+run_type    = 1
+width       = 800
+height      = 480
+timeout     = 20
+outlogname  = "outgpu"
+errlogname  = "errgpu"
+
+[EXAMPLEC]
+display_name= "exampleC"
+activated   = 0
+program     = "example"
+category    = 0
+run_type    = 1
+platform    = r40
+
+[EXAMPLESH]
+display_name= "exampleSH"
+activated   = 0
+program     = "example.sh"
+category    = 0
+run_type    = 1
+platform    = r40
