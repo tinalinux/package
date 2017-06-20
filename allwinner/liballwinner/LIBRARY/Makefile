@@ -50,10 +50,32 @@ ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
 	-cp EXTERNAL/lib32/lgnueabi/libcdc_adecoder.so  install/lib/
 	-cp EXTERNAL/lib32/lgnueabi/libcdc_aencoder.so  install/lib/
 	-cp EXTERNAL/lib32/lgnueabi/liblive555.so  install/lib/
+
+ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+	-cp libcedarc/library/lib32/lgnueabi_linux310/*.so      install/lib/
+else
 	-cp libcedarc/library/lib32/lgnueabi/*.so      install/lib/
+endif
 
 	-mkdir -p install/external/
 	-cp EXTERNAL/lib32/lgnueabi/*.so                  install/external/
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
+	-cp EXTERNAL/lib32/lgnueabihf/libnormal_audio.so  install/lib/
+	-cp EXTERNAL/lib32/lgnueabihf/libpostprocess.so  install/lib/
+	-cp EXTERNAL/lib32/lgnueabihf/libcdc_adecoder.so  install/lib/
+	-cp EXTERNAL/lib32/lgnueabihf/libcdc_aencoder.so  install/lib/
+	-cp EXTERNAL/lib32/lgnueabihf/liblive555.so  install/lib/
+
+ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+	-cp libcedarc/library/lib32/lgnueabihf_linux310/*.so      install/lib/
+else
+	-cp libcedarc/library/lib32/lgnueabihf/*.so      install/lib/
+endif
+
+	-mkdir -p install/external/
+	-cp EXTERNAL/lib32/lgnueabihf/*.so                  install/external/
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))

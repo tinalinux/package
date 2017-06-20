@@ -20,7 +20,7 @@ include $(BUILD_DIR)/package.mk
 
 # Name and release number of this package
 PKG_NAME:=speech
-PKG_VERSION:=0.0.8
+PKG_VERSION:=0.0.11
 PKG_RELEASE:=1
 
 PKG_BUILD_DIR := $(COMPILE_DIR)/$(PKG_NAME)-$(PKG_VERSION)
@@ -31,7 +31,8 @@ define Package/$(PKG_NAME)/Default
   CATEGORY:=Allwinner
   DEPENDS:=+libpthread \
 		   +libstdcpp \
-		   ++alsa-lib
+		   +alsa-lib \
+           +libresample
 
 endef
 

@@ -15,10 +15,15 @@ DLNA_DYNAMIC_LIBS := \
 		-ldlnaHAL \
 		-ldlnaservice
 
-AWPLATER_LIBS := -ltinaplayer -lxplayer -lcdc_vdecoder -lcdc_adecoder \
-	             -lcdc_sdecoder -lcdc_base -lcdc_ve -lcdc_memory \
-				 -lcdx_parser  -lplayer -lcdx_stream -lcdx_base  -lpostprocess \
-				 -law_plugin  -lpthread -ldl -lstdc++ -lrt -lm -lc -lz -lasound
+ifeq ($(TARGET_BOARD),$(filter $(TARGET_BOARD),azalea tulip sitar cello banjo))
+AWPLATER_LIBS :=  -ltinaplayer -lxplayer -lcdc_vdecoder -ladecoder -lcdc_sdecoder -lcdc_base -lcdc_ve -lcdc_memory \
+               -lcdx_parser  -lcdx_playback -lcdx_stream -lcdx_base \
+               -lpthread -ldl -lstdc++ -lrt -lm -lc -lz -lasound
+else ifeq ($(TARGET_BOARD),$(filter $(TARGET_BOARD),astar octopus))
+AWPLATER_LIBS :=  -ltinaplayer -lxplayer -lcdc_vdecoder -lcdc_adecoder -lcdc_sdecoder -lcdc_base -lcdc_ve -lcdc_memory \
+               -lcdx_parser  -lplayer -lcdx_stream -lcdx_base -law_plugin \
+               -lpthread -ldl -lstdc++ -lrt -lm -lc -lz -lasound
+endif
 
 LIBS := \
 		$(SYS_LIBS) \

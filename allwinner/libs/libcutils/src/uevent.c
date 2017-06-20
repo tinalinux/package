@@ -55,8 +55,8 @@ ssize_t uevent_kernel_multicast_uid_recv(int socket, void *buffer,
         sizeof(addr),
         &iov,
         1,
-        control,
-        sizeof(control),
+        .msg_control = (void *)control,
+        .msg_controllen = sizeof(control),
         0,
     };
 

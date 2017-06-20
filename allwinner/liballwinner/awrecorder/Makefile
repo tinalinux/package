@@ -80,13 +80,27 @@ LoadFlags += -L../LIBRARY/DEMUX/BASE/ \
              -L../LIBRARY/DEMUX/MUXER/ \
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
+    ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabihf_linux310
+    else
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabihf
+    endif
 LoadFlags += -L../LIBRARY/EXTERNAL/lib32/lgnueabihf
-LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabihf
+
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../LIBRARY/EXTERNAL/lib32/uclibc_arm926
+LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/uclibc-arm926
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
+    ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabi_linux310
+    else
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabi
+    endif
 LoadFlags += -L../LIBRARY/EXTERNAL/lib32/lgnueabi
-LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/lgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))
@@ -100,17 +114,17 @@ LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/linuxgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI))
-LoadFlags +=-L../LIBRARY/EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/muslgnueabi
+    ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/muslgnueabi_linux310
+    else
+    LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/muslgnueabi
+    endif
+
+    LoadFlags +=-L../LIBRARY/EXTERNAL/lib32/muslgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI64))
 LoadFlags +=-L../LIBRARY/EXTERNAL/lib64/muslgnueabi
-endif
-
-ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI310))
-LoadFlags +=-L../LIBRARY/EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../LIBRARY/libcedarc/library/lib32/muslgnueabi_linux310
 endif
 
 ################################################################################

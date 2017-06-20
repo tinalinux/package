@@ -24,7 +24,7 @@ include $(BUILD_DIR)/package.mk
 define Package/libmgncs
   SECTION:=gui
   CATEGORY:=Minigui
-  DEPENDS:= +libminigui-gpl
+  DEPENDS:= +libminigui-gpl +libmgutils
   TITLE:=libmgncs
   MAINTAINER:=tracewong <tracewong@outlook.com>
   URL:=http://www.minigui.org/

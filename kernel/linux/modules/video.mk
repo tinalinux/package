@@ -62,7 +62,7 @@ define KernelPackage/fb
 	CONFIG_FB \
 	CONFIG_FB_MXS=n \
 	CONFIG_FB_SM750=n
-  FILES:=$(LINUX_DIR)/drivers/video/fbdev/core/fb.ko
+  FILES:=$(LINUX_DIR)/drivers/video/fb.ko
   AUTOLOAD:=$(call AutoLoad,06,fb)
 endef
 
@@ -110,7 +110,7 @@ define KernelPackage/fbcon
 	$(LINUX_DIR)/drivers/video/console/fbcon_cw.ko \
 	$(LINUX_DIR)/drivers/video/console/fbcon_ud.ko \
 	$(LINUX_DIR)/drivers/video/console/fbcon_ccw.ko \
-	$(LINUX_DIR)/lib/fonts/font.ko
+	$(LINUX_DIR)/drivers/video/console/font.ko
   AUTOLOAD:=$(call AutoLoad,94,font softcursor tileblit fbcon_cw fbcon_ud fbcon_ccw fbcon_rotate bitblit fbcon)
 endef
 

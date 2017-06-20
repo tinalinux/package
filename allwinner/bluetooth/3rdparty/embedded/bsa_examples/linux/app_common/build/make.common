@@ -14,6 +14,9 @@ else
 ifeq ($(CPU), arm)
   TARGET_DEF :=
 else
+ifeq ($(CPU), arm64)
+  TARGET_DEF :=
+else
   # Check if the local machine is 32 or 64 bits
   LBIT := $(shell getconf LONG_BIT)
   ifeq ($(LBIT), 64)
@@ -23,6 +26,7 @@ else
     CPU := x86
   endif
   TARGET_DEF :=
+endif
 endif
 endif
 
@@ -69,6 +73,23 @@ ifeq ($(CPU), mips)
 
 else
 ifeq ($(CPU), arm)
+
+  # priority is given to the environment setting ARMGCC and ARMGCCLIBPATH
+  ifdef ARMGCC
+    CC = $(ARMGCC)
+    LINK = $(ARMGCC)
+  else
+    # standard ARM compiler
+    LINK = arm_v7_vfp_le-gcc
+  endif
+  # path library default value
+  ARMGCCLIBPATH ?= /opt/toolchains/ToolChain_arm_v7/arm_v7_vfp_le/target/lib/
+
+  CCCPUFLAGS := $(ARMCCFLAGS)
+  LINKCPUFLAGS := $(patsubst %,-L %,$(ARMGCCLIBPATH)) $(ARMLINKFLAG)
+
+else
+ifeq ($(CPU), arm64)
 
   # priority is given to the environment setting ARMGCC and ARMGCCLIBPATH
   ifdef ARMGCC
@@ -142,6 +163,7 @@ endif
 endif
 endif
 endif
+endif
 
 # CC inclusion flags
 CCINC = $(patsubst %,-I%,$(patsubst /,/,$(incdirs)))
@@ -172,6 +194,12 @@ endif
 CCFLAGS = $(CCDBGFLAGS) $(CCOPTIMFLAGS) $(CCCPUFLAGS)  $(CCFORTIFYFLAGS) -DBUILDCFG -Wall -Wextra -Wno-unused-parameter -c
 
 ifeq ($(CPU), arm)
+ifneq ( , $(findstring hndtools-arm-linux-2.6.36-uclibc-4.5.3, $(ARMGCCLIBPATH)))
+CCFLAGS := $(CCFLAGS) -DPTHREAD_CONDATTR_SETCLOCK_UNDEFINED -DCLOCK_NANOSLEEP_UNDEFINED
+endif
+endif
+
+ifeq ($(CPU), arm64)
 ifneq ( , $(findstring hndtools-arm-linux-2.6.36-uclibc-4.5.3, $(ARMGCCLIBPATH)))
 CCFLAGS := $(CCFLAGS) -DPTHREAD_CONDATTR_SETCLOCK_UNDEFINED -DCLOCK_NANOSLEEP_UNDEFINED
 endif

@@ -18,7 +18,7 @@ define KernelPackage/usb-core
   KCONFIG:=CONFIG_USB CONFIG_XPS_USB_HCD_XILINX=n CONFIG_USB_FHCI_HCD=n
   FILES:= \
 	$(LINUX_DIR)/drivers/usb/core/usbcore.ko \
-	$(LINUX_DIR)/drivers/usb/common/usb-common.ko
+	$(LINUX_DIR)/drivers/usb/usb-common.ko
   AUTOLOAD:=$(call AutoLoad,20,usb-common usbcore,1)
   $(call AddDepends/nls)
 endef
@@ -330,12 +330,11 @@ define KernelPackage/usb-ohci
 	CONFIG_USB_OHCI_HCD_OMAP3=y \
 	CONFIG_USB_OHCI_HCD_PLATFORM=y
   FILES:= \
-	$(LINUX_DIR)/drivers/usb/host/ohci-hcd.ko \
-	$(LINUX_DIR)/drivers/usb/host/ohci-platform.ko
+	$(LINUX_DIR)/drivers/usb/host/ohci-hcd.ko
   ifneq ($(wildcard $(LINUX_DIR)/drivers/usb/host/ohci-at91.ko),)
     FILES+=$(LINUX_DIR)/drivers/usb/host/ohci-at91.ko
   endif
-  AUTOLOAD:=$(call AutoLoad,50,ohci-hcd ohci-platform ohci-at91,1)
+  AUTOLOAD:=$(call AutoLoad,50,ohci-hcd ohci-at91,1)
   $(call AddDepends/usb)
 endef
 
@@ -579,7 +578,7 @@ define KernelPackage/usb-audio
 	CONFIG_SND_USB=y \
 	CONFIG_SND_USB_AUDIO
   $(call AddDepends/usb)
-  $(call AddDepends/sound)
+  $(call AddDepends/sound, kmod-sound-core-hwdep )
   FILES:= \
 	$(LINUX_DIR)/sound/usb/snd-usbmidi-lib.ko \
 	$(LINUX_DIR)/sound/usb/snd-usb-audio.ko
@@ -1508,7 +1507,7 @@ define KernelPackage/usbip
   KCONFIG:= \
 	CONFIG_USBIP_CORE \
 	CONFIG_USBIP_DEBUG=n
-  FILES:=$(LINUX_DIR)/drivers/usb/usbip/usbip-core.ko
+  FILES:=$(LINUX_DIR)/drivers/staging/usbip/usbip-core.ko
   AUTOLOAD:=$(call AutoProbe,usbip-core)
   $(call AddDepends/usb)
 endef
@@ -1520,7 +1519,7 @@ define KernelPackage/usbip-client
   TITLE := USB-over-IP client driver
   DEPENDS := +kmod-usbip
   KCONFIG := CONFIG_USBIP_VHCI_HCD
-  FILES :=$(LINUX_DIR)/drivers/usb/usbip/vhci-hcd.ko
+  FILES :=$(LINUX_DIR)/drivers/staging/usbip/vhci-hcd.ko
   AUTOLOAD := $(call AutoProbe,vhci-hcd)
   $(call AddDepends/usb)
 endef
@@ -1533,7 +1532,7 @@ $(call KernelPackage/usbip/Default)
   TITLE := USB-over-IP host driver
   DEPENDS := +kmod-usbip
   KCONFIG := CONFIG_USBIP_HOST
-  FILES :=$(LINUX_DIR)/drivers/usb/usbip/usbip-host.ko
+  FILES :=$(LINUX_DIR)/drivers/staging/usbip/usbip-host.ko
   AUTOLOAD := $(call AutoProbe,usbip-host)
   $(call AddDepends/usb)
 endef

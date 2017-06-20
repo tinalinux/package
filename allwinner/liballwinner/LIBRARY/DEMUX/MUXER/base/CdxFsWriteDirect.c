@@ -27,7 +27,12 @@ typedef struct tag_FsDirectContext
 static cdx_int32 FsDirectWrite(CdxFsWriter *thiz, const cdx_int8 *buf, cdx_int32 size)
 {
     FsDirectContext *p_ctx = (FsDirectContext*)thiz->m_priv;
-    return FileWriter(p_ctx->mp_writer, buf, size);
+    cdx_int32 ret = FileWriter(p_ctx->mp_writer, buf, size);
+    if (ret < 0)
+    {
+        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+    }
+    return ret;
 }
 
 static cdx_int32 FsDirectSeek(CdxFsWriter *thiz, cdx_int64 noffset, cdx_int32 nwhere)

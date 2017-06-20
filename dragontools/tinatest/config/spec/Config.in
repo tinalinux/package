@@ -1,0 +1,5 @@
+config TINATEST_SPEC
+    bool "Enable"
+
+if TINATEST_SPEC
+endif

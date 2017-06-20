@@ -114,6 +114,7 @@ typedef struct MOVTrack {
     cdx_uint32          stts_tiny_pages;
 
     cdx_uint32          key_frame_num;
+    cdx_uint32          average_duration;
 } MOVTrack;
 
 typedef struct MuxMOVContext {
@@ -125,6 +126,7 @@ typedef struct MuxMOVContext {
     cdx_int64       mdat_size;
 
     cdx_int32       mov_timescale;
+    cdx_int64       play_time_length;
 
     // for user infomation
     cdx_int32       mov_geo_available;
@@ -177,7 +179,7 @@ typedef struct Mp4MuxContext
     void                *priv_data; // MuxMOVContext
     cdx_int8            *mov_inf_cache;
     CdxFsWriterInfo     fs_writer_info;
-    cdx_uint8           is_sdcard_disapear;
+    cdx_uint8           is_sdcard_disappear;
 } Mp4MuxContext;
 
 #define MOV_TMPFILE_DIR "/mnt/UDISK/mp4tmp/"

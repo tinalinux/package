@@ -148,6 +148,9 @@ public:
     int setLooping(int bLoop);
 
     int callbackProcess(int messageId, void* param);
+
+    int setVideoOutputScaleRatio(int horizonScaleDownRatio,int verticalScaleDownRatio);
+
     int mainThread();
 
     int setVolume(int volume);

@@ -1,0 +1,69 @@
+menu 'battery'
+    config TINATEST_BASE_BATTERY_ENABLE
+        bool "Enable"
+        default n
+
+    if TINATEST_BASE_BATTERY_ENABLE
+        config TINATEST_BASE_BATTERY_COMMAND
+            string "command"
+            default "base-battery.sh 1"
+
+        config TINATEST_BASE_BATTERY_STDIN
+            string "stdin"
+            default ""
+
+        config TINATEST_BASE_BATTERY_FSTDIN
+            string "fstdin"
+            default ""
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_BASE_BATTERY_INFO
+            bool "INFO"
+            default y
+
+        if TINATEST_BASE_BATTERY_INFO
+            config TINATEST_BASE_BATTERY_DATE
+                bool "date"
+                default y if TINATEST_SYS_LOCAL_INFO_DATE
+
+            config TINATEST_BASE_BATTERY_RESOURCE
+                bool "resource"
+                default y if TINATEST_SYS_LOCAL_INFO_RESOURCE
+        endif
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_BASE_BATTERY_LIMIT
+            bool "LIMIT"
+            default y
+
+        if TINATEST_BASE_BATTERY_LIMIT
+            config TINATEST_BASE_BATTERY_RUN_TIMES
+                string "run_times"
+                default 1
+
+            config TINATEST_BASE_BATTERY_RUN_ALONE
+                bool "run_alone"
+                default n
+
+            config TINATEST_BASE_BATTERY_RUN_PARALLEL
+                bool "run_parallel"
+                default y
+
+            config TINATEST_BASE_BATTERY_MAY_REBOOT
+                bool "may_reboot"
+                default y if TINATEST_SYS_LOCAL_LIMIT_MAY_REBOOT
+
+            config TINATEST_BASE_BATTERY_RUN_TIME_SEC
+                string "run_time_sec"
+                default "Default"
+
+            config TINATEST_BASE_BATTERY_RUN_TIME_MIN
+                string "run_time_min"
+                default "Default"
+
+            config TINATEST_BASE_BATTERY_RUN_TIME_HOUR
+                string "run_time_hour"
+                default "Default"
+        endif
+    endif
+endmenu

@@ -2,6 +2,7 @@
 
 START=20
 STOP=90
+DEPEND=sysctl
 
 USE_PROCD=1
 OOM_ADJ=-17
@@ -149,5 +150,5 @@ restart() {
 
 shutdown() {
 	ifdown -a
-	sleep 1
+	#sleep 1
 }

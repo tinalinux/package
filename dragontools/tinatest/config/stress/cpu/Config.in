@@ -1,0 +1,10 @@
+menu 'cpu'
+config TINATEST_STRESS_CPU
+    bool "Enable"
+
+if TINATEST_STRESS_CPU
+    source Config-cpucalc.in
+    source Config-cpufreq.in
+    source Config-cpuhotplug.in
+endif
+endmenu

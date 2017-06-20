@@ -107,6 +107,16 @@ static struct ParserUriKeyInfoS mmsKeyInfo =
     {NULL}, /*suffix*/
     {NULL}   /*attribute*/
 };
+
+extern CdxParserCreatorT mmshttpParserCtor;
+static struct ParserUriKeyInfoS mmshttpKeyInfo =
+{
+    "mmshttp",
+    {NULL},  /*scheme*/
+    {NULL}, /*suffix*/
+    {NULL}   /*attribute*/
+};
+
 #endif
 
 extern CdxParserCreatorT hlsParserCtor;
@@ -162,6 +172,15 @@ static struct ParserUriKeyInfoS oggKeyInfo =
     "ogg",
     {NULL},  /*scheme*/
     {".ogm", ".ogg"}, /*suffix*/
+    {NULL}   /*attribute*/
+};
+
+extern CdxParserCreatorT playlistParserCtor;
+static struct ParserUriKeyInfoS playlistKeyInfo =
+{
+    "playlist",
+    {NULL},  /*scheme*/
+    {".list"}, /*suffix*/
     {NULL}   /*attribute*/
 };
 
@@ -249,14 +268,6 @@ static struct ParserUriKeyInfoS wavKeyInfo =
 };
 
 #ifdef __ANDROID__
-extern CdxParserCreatorT mmshttpParserCtor;
-static struct ParserUriKeyInfoS mmshttpKeyInfo =
-{
-    "mmshttp",
-    {NULL},  /*scheme*/
-    {NULL}, /*suffix*/
-    {NULL}   /*attribute*/
-};
 
 extern CdxParserCreatorT awtsParserCtor;
 static struct ParserUriKeyInfoS awtsKeyInfo =
@@ -432,6 +443,7 @@ cdx_void AwParserInit(cdx_void)
 #endif
 
     AwParserRegister(&id3ParserCtor, CDX_PARSER_ID3, &id3KeyInfo);
+	AwParserRegister(&playlistParserCtor, CDX_PARSER_PLAYLIST, &playlistKeyInfo);
 #ifdef __ANDROID__
 #if ENABLE_RAW_STREAM_PARSER
     AwParserRegister(&rawStreamParserCtor, CDX_PARSER_AWRAWSTREAM, &rawStreamKeyInfo);

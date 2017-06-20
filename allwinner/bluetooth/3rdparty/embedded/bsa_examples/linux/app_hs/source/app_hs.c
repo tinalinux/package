@@ -98,6 +98,7 @@ typedef struct
  */
 
 tAPP_HS_CB  app_hs_cb;
+int   pcm_set_flag = 0;
 
 const char *app_hs_service_ind_name[] =
 {
@@ -136,9 +137,12 @@ const char *app_hs_roam_ind_name[] =
 static tHsCallback *s_pHsCallback = NULL;
 
 #ifdef PCM_ALSA
-static char *alsa_device = "default"; /* ALSA playback device */
-static snd_pcm_t *alsa_handle_playback = NULL;
-static snd_pcm_t *alsa_handle_capture = NULL;
+static char *alsa_device1 = "hw:0,1"; /* ALSA device1 */
+static char *alsa_device2 = "hw:0,2"; /* ALSA device2 */
+static snd_pcm_t *alsa_handle_playback1 = NULL;
+static snd_pcm_t *alsa_handle_playback2 = NULL;
+static snd_pcm_t *alsa_handle_capture1 = NULL;
+static snd_pcm_t *alsa_handle_capture2 = NULL;
 static BOOLEAN alsa_capture_opened = FALSE;
 static BOOLEAN alsa_playback_opened = FALSE;
 #endif
@@ -182,9 +186,30 @@ tBSA_HS_CONN_CB *app_hs_get_default_conn()
 **
 ** Returns          Pointer to the found connection, NULL if not found
 *******************************************************************************/
-tBSA_HS_CONN_CB *app_hs_get_conn_by_handle(UINT16 handle)
+static tBSA_HS_CONN_CB *app_hs_get_conn_by_handle(UINT16 handle)
 {
     APPL_TRACE_EVENT1("app_hs_get_conn_by_handle: %d", handle);
+
+    /* check that the handle does not go beyond limits */
+    if (handle <= BSA_HS_MAX_NUM_CONN)
+    {
+        return &app_hs_cb.conn_cb[handle-1];
+    }
+
+    return NULL;
+}
+
+/*******************************************************************************
+**
+** Function         app_hs_get_conn_by_handle_external
+**
+** Description      Find a connection control block by its handle
+**
+** Returns          Pointer to the found connection, NULL if not found
+*******************************************************************************/
+tBSA_HS_CONN_CB *app_hs_get_conn_by_handle_external(UINT16 handle)
+{
+    APPL_TRACE_EVENT1("app_hs_get_conn_by_handle_external: %d", handle);
 
     /* check that the handle does not go beyond limits */
     if (handle <= BSA_HS_MAX_NUM_CONN)
@@ -462,7 +487,42 @@ static int app_hs_write_to_file(UINT8 *p_buf, int size)
     return ret;
 }
 
-/*******************************************************************************
+static void hs_pcm_set_input(void)
+{
+	system("amixer cset name='MIC1 boost amplifier gain' 5");
+	system("amixer cset name='LEFT ADC input Mixer MIC1 boost Switch' 1");
+	system("amixer cset name='RIGHT ADC input Mixer MIC1 boost Switch' 1");
+	system("amixer cset name='AIF2 ADR Mixer ADCR Switch' 1");
+	system("amixer cset name='AIF2 ADL Mixer ADCL Switch' 1");
+	system("amixer cset name='AIF3OUT Mux' 2");
+}
+
+static void hs_pcm_close_input(void)
+{
+	system("amixer cset name='AIF3OUT Mux' 0");
+	system("amixer cset name='AIF2 ADR Mixer ADCR Switch' 0");
+	system("amixer cset name='AIF2 ADL Mixer ADCL Switch' 0");
+	system("amixer cset name='LEFT ADC input Mixer MIC1 boost Switch' 0");
+	system("amixer cset name='RIGHT ADC input Mixer MIC1 boost Switch' 0");
+
+}
+
+static void hs_pcm_set_output(void)
+{
+	system("amixer cset name='AIF2INR Mux VIR switch aif2inr aif3' 1");
+	system("amixer cset name='DACR Mixer AIF2DACR Switch' 1");
+	system("amixer cset name='DACL Mixer AIF2DACL Switch' 1");
+	system("amixer cset name='Headphone Switch' 1");
+}
+
+static void hs_pcm_close_output(void)
+{
+	//system("amixer cset name='Headphone Switch' 0");
+	system("amixer cset name='DACR Mixer AIF2DACR Switch' 0");
+	system("amixer cset name='DACL Mixer AIF2DACL Switch' 0");
+	system("amixer cset name='AIF2INR Mux VIR switch aif2inr aif3' 0");
+}
+/*******************************************************
  **
  ** Function         app_hs_sco_uipc_cback
  **
@@ -506,11 +566,11 @@ static void app_hs_sco_uipc_cback(BT_HDR *p_buf)
         /*
         * Send PCM samples to ALSA/asound driver (local sound card)
         */
-        alsa_frames = snd_pcm_writei(alsa_handle_playback, pp, alsa_frames_expected);
+        alsa_frames = snd_pcm_writei(alsa_handle_playback1, pp, alsa_frames_expected);
         if (alsa_frames < 0)
         {
             APP_DEBUG1("snd_pcm_recover %d", (int)alsa_frames);
-            alsa_frames = snd_pcm_recover(alsa_handle_playback, alsa_frames, 0);
+            alsa_frames = snd_pcm_recover(alsa_handle_playback1, alsa_frames, 0);
         }
         if (alsa_frames < 0)
         {
@@ -532,7 +592,7 @@ static void app_hs_sco_uipc_cback(BT_HDR *p_buf)
         /*
         * Read PCM samples from ALSA/asound driver (local sound card)
         */
-        alsa_frames = snd_pcm_readi(alsa_handle_capture, app_hs_cb.audio_buf, alsa_frames_expected);
+        alsa_frames = snd_pcm_readi(alsa_handle_capture1, app_hs_cb.audio_buf, alsa_frames_expected);
         if (alsa_frames < 0)
         {
             APP_ERROR1("snd_pcm_readi returns: %d", (int)alsa_frames);
@@ -1145,9 +1205,9 @@ void app_hs_cback(tBSA_HS_EVT event, tBSA_HS_MSG *p_data)
 
     case BSA_HS_AUDIO_CLOSE_EVT:         /* Audio Close event */
         fprintf(stdout,"BSA_HS_AUDIO_CLOSE_EVT\n");
-        #ifdef PCM_ALSA
-            app_hs_close_alsa_duplex();
-        #endif
+#ifdef PCM_ALSA
+				app_hs_close_alsa_duplex();
+#endif
         if (!p_conn->connection_active)
         {
             printf("BSA_HS_AUDIO_CLOSE_EVT: connection not opened for handle %d\n", handle);
@@ -1353,7 +1413,7 @@ int app_hs_register(void)
 
     APP_DEBUG0("start Register");
 
-    app_hs_cb.sco_route = BSA_SCO_ROUTE_HCI;
+    app_hs_cb.sco_route = BSA_SCO_ROUTE_PCM;
 
     /* prepare parameters */
     BSA_HsRegisterInit(&param);
@@ -1936,6 +1996,63 @@ int app_hs_getallIndicatorValues(tBSA_HS_IND_VALS *pIndVals)
 
 
 #ifdef PCM_ALSA
+
+static int alsa_set_pcm_params(snd_pcm_t *playback_handle,
+                           snd_pcm_format_t format,
+                           unsigned int channels,
+                           unsigned int sample_rate)
+{
+    int err;
+	snd_pcm_hw_params_t *hw_params;
+
+	  if((err = snd_pcm_hw_params_malloc(&hw_params)) < 0)
+    {
+	  fprintf(stderr, "cannot allocate hardware parameter structure (%s)\n",snd_strerror(err));
+		    return -1;
+    }
+
+    if((err = snd_pcm_hw_params_any(playback_handle, hw_params)) < 0)
+	{
+		fprintf(stderr, "cannot initialize hardware parameter structure (%s)\n", snd_strerror(err));
+		return -1;
+	}
+
+	if((err = snd_pcm_hw_params_set_access(playback_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0)
+	{
+		fprintf(stderr, "cannot allocate hardware parameter structure (%s)\n",snd_strerror(err));
+		return -1;
+	}
+
+	if((err = snd_pcm_hw_params_set_format(playback_handle, hw_params, format)) < 0)
+	{
+		fprintf(stderr, "cannot allocate hardware parameter structure (%s)\n",snd_strerror(err));
+		return -1;
+	}
+
+	if((err = snd_pcm_hw_params_set_rate(playback_handle, hw_params, sample_rate, 0)) < 0)
+	{
+		fprintf(stderr , "cannot set sample rate (%s)\n", snd_strerror(err));
+		return -1;
+	}
+
+	if((err = snd_pcm_hw_params_set_channels(playback_handle, hw_params, channels)) <0)
+	{
+		fprintf(stderr, "cannot set channel count (%s)\n", snd_strerror(err));
+		return -1;
+	}
+
+	if((err = snd_pcm_hw_params(playback_handle, hw_params)) < 0)
+	{
+		fprintf(stderr, "cannot set parameters (%s)\n", snd_strerror(err));
+		return -1;
+	}
+
+	snd_pcm_hw_params_free(hw_params);
+	return 0;
+}
+
+
+
 /*******************************************************************************
 **
 ** Function         app_hs_open_alsa_duplex
@@ -1951,26 +2068,31 @@ int app_hs_open_alsa_duplex(void)
 {
     int status;
 
+	/* set hs pcm */
+	hs_pcm_set_input();
+	hs_pcm_set_output();
+	pcm_set_flag = 1;
+
     /* If ALSA PCM driver was already open => close it */
-    if (alsa_handle_playback != NULL)
+    if (alsa_handle_playback1 != NULL)
     {
-        snd_pcm_close(alsa_handle_playback);
-        alsa_handle_playback = NULL;
+        snd_pcm_close(alsa_handle_playback1);
+        alsa_handle_playback1 = NULL;
     }
 
     APP_DEBUG0("Opening Alsa/Asound audio driver Playback");
     /* Open ALSA driver */
-    status = snd_pcm_open(&alsa_handle_playback, alsa_device,
+    status = snd_pcm_open(&alsa_handle_playback1, alsa_device1,
         SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
     if (status < 0)
     {
-        APP_ERROR1("snd_pcm_open failed: %s", snd_strerror(status));
+        APP_ERROR1("snd_pcm_open device1 failed: %s", snd_strerror(status));
         return status;
     }
     else
     {
         /* Configure ALSA driver with PCM parameters */
-        status = snd_pcm_set_params(alsa_handle_playback,
+        status = snd_pcm_set_params(alsa_handle_playback1,
             SND_PCM_FORMAT_S16_LE,
             SND_PCM_ACCESS_RW_INTERLEAVED,
             APP_HS_CHANNEL_NB,
@@ -1979,46 +2101,117 @@ int app_hs_open_alsa_duplex(void)
             100000);/* 100msec */
         if (status < 0)
         {
-            APP_ERROR1("snd_pcm_set_params failed: %s", snd_strerror(status));
-            return status;
+            APP_ERROR1("snd_pcm_set_params device1 failed: %s", snd_strerror(status));
+			goto fail1;
         }
+        snd_pcm_start(alsa_handle_playback1);
+    }
+
+	if (alsa_handle_playback2 != NULL)
+    {
+        snd_pcm_close(alsa_handle_playback2);
+        alsa_handle_playback2 = NULL;
+    }
+
+    status = snd_pcm_open(&alsa_handle_playback2, alsa_device2,
+        SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+    if (status < 0)
+    {
+        APP_ERROR1("snd_pcm_open device2 failed: %s", snd_strerror(status));
+		goto fail1;
+    }
+    else
+    {
+        /* Configure ALSA driver with PCM parameters */
+        status = snd_pcm_set_params(alsa_handle_playback2,
+            SND_PCM_FORMAT_S16_LE,
+            SND_PCM_ACCESS_RW_INTERLEAVED,
+            APP_HS_CHANNEL_NB,
+            APP_HS_SAMPLE_RATE,
+            1, /* SW resample */
+            100000);/* 100msec */
+        if (status < 0)
+        {
+            APP_ERROR1("snd_pcm_set_params device2 failed: %s", snd_strerror(status));
+            goto fail2;
+        }
+		snd_pcm_start(alsa_handle_playback2);
     }
     alsa_playback_opened = TRUE;
 
     /* If ALSA PCM driver was already open => close it */
-    if (alsa_handle_capture != NULL)
+    if (alsa_handle_capture1 != NULL)
     {
-        snd_pcm_close(alsa_handle_capture);
-        alsa_handle_capture = NULL;
+        snd_pcm_close(alsa_handle_capture1);
+        alsa_handle_capture1 = NULL;
     }
     APP_DEBUG0("Opening Alsa/Asound audio driver Capture");
 
-    status = snd_pcm_open(&alsa_handle_capture, alsa_device,
+    status = snd_pcm_open(&alsa_handle_capture1, alsa_device1,
         SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK);
     if (status < 0)
     {
-        APP_ERROR1("snd_pcm_open failed: %s", snd_strerror(status));
-        return status;
+        APP_ERROR1("snd_pcm_open device1 failed: %s", snd_strerror(status));
+        goto fail2;
     }
     else
     {
         /* Configure ALSA driver with PCM parameters */
-        status = snd_pcm_set_params(alsa_handle_capture,
-            SND_PCM_FORMAT_S16_LE,
-            SND_PCM_ACCESS_RW_INTERLEAVED,
-            APP_HS_CHANNEL_NB,
-            APP_HS_SAMPLE_RATE,
-            1, /* SW resample */
-            100000);/* 100msec */
+        status = alsa_set_pcm_params(alsa_handle_capture1,
+			SND_PCM_FORMAT_S16_LE,
+			APP_HS_CHANNEL_NB,
+			APP_HS_SAMPLE_RATE);
         if (status < 0)
         {
-            APP_ERROR1("snd_pcm_set_params failed: %s", snd_strerror(status));
-            return status;
+            APP_ERROR1("alsa_set_pcm_params device1 failed: %s", snd_strerror(status));
+            goto fail3;
         }
+		snd_pcm_start(alsa_handle_capture1);
     }
-    alsa_capture_opened = TRUE;
 
-    return 0;
+	status = snd_pcm_open(&alsa_handle_capture2, alsa_device2,
+        SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK);
+    if (status < 0)
+    {
+        APP_ERROR1("snd_pcm_open device2 failed: %s", snd_strerror(status));
+        goto fail3;
+    }
+    else
+    {
+        /* Configure ALSA driver with PCM parameters */
+        status = alsa_set_pcm_params(alsa_handle_capture2,
+			SND_PCM_FORMAT_S16_LE,
+			APP_HS_CHANNEL_NB,
+			APP_HS_SAMPLE_RATE);
+        if (status < 0)
+        {
+            APP_ERROR1("alsa_set_pcm_params device2 failed: %s", snd_strerror(status));
+            goto fail4;
+        }
+		snd_pcm_start(alsa_handle_capture2);
+    }
+
+    alsa_capture_opened = TRUE;
+	goto success;
+
+fail4:
+	snd_pcm_close(alsa_handle_capture2);
+	alsa_handle_capture2 = NULL;
+
+fail3:
+	snd_pcm_close(alsa_handle_capture1);
+	alsa_handle_capture1 = NULL;
+
+fail2:
+	snd_pcm_close(alsa_handle_playback2);
+	alsa_handle_playback2 = NULL;
+
+fail1:
+	snd_pcm_close(alsa_handle_playback1);
+	alsa_handle_playback1 = NULL;
+
+success:
+    return status;
 }
 
 /*******************************************************************************
@@ -2034,18 +2227,38 @@ int app_hs_open_alsa_duplex(void)
 *******************************************************************************/
 int app_hs_close_alsa_duplex(void)
 {
-    if (alsa_handle_playback != NULL)
+    if (alsa_handle_playback1 != NULL)
     {
-        snd_pcm_close(alsa_handle_playback);
-        alsa_handle_playback = NULL;
-        alsa_playback_opened = FALSE;
+        snd_pcm_close(alsa_handle_playback1);
+        alsa_handle_playback1 = NULL;
     }
-    if (alsa_handle_capture != NULL)
+
+	if (alsa_handle_playback2 != NULL)
     {
-        snd_pcm_close(alsa_handle_capture);
-        alsa_handle_capture = NULL;
-        alsa_capture_opened = FALSE;
+        snd_pcm_close(alsa_handle_playback2);
+        alsa_handle_playback2 = NULL;
     }
+	alsa_playback_opened = FALSE;
+
+    if (alsa_handle_capture1 != NULL)
+    {
+        snd_pcm_close(alsa_handle_capture1);
+        alsa_handle_capture1 = NULL;
+    }
+
+	if (alsa_handle_capture2 != NULL)
+    {
+        snd_pcm_close(alsa_handle_capture2);
+        alsa_handle_capture2 = NULL;
+    }
+	alsa_capture_opened = FALSE;
+
+	if (pcm_set_flag == 1){
+		hs_pcm_close_output();
+		hs_pcm_close_input();
+		pcm_set_flag = 0;
+	}
+
     return 0;
 }
 #endif

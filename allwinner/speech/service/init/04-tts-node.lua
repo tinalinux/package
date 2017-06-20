@@ -9,7 +9,8 @@ if not aiosconf then
 	    provision = "test/res/aios-1.0.0-146182097285958e.provision",
 --	    cloudServer = "ws://s-test.api.aispeech.com:10000"
 --		cloudServer = "ws://172.16.10.119:80"
-		cloudServer = "ws://112.80.39.95:8009"
+		--cloudServer = "ws://112.80.39.95:8009"
+		cloudServer = "ws://58.210.96.236:8888"
 	}
 end
 

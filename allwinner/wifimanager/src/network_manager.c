@@ -11,6 +11,7 @@
 #include "wifi.h"
 
 #define WAITING_CLK_COUNTS   50
+#define SSID_LEN	512
 
 /* scan thread */
 static pthread_t       scan_thread_id;
@@ -107,7 +108,7 @@ int get_key_mgmt(const char *ssid, int key_mgmt_info[])
     char *ptr = NULL, *pssid_start = NULL, *pssid_end = NULL;
     char *pst = NULL, *pend = NULL;
     char *pflag = NULL;
-    char flag[128];
+    char flag[128], pssid[SSID_LEN + 1];
     int  len = 0, i = 0;
 
     printf("enter get_key_mgmt, ssid %s\n", ssid);
@@ -128,56 +129,46 @@ int get_key_mgmt(const char *ssid, int key_mgmt_info[])
 
     //point second line of scan results
     ptr++;
-    while((pssid_start=strstr(ptr, ssid)) != NULL){
-        pssid_end = pssid_start + strlen(ssid);
+	while(1){
+		/* line end */
+		pend = strchr(ptr, '\n');
+		if (pend != NULL){
+			*pend = '\0';
+		}
 
-        /* ssid is presuffix of searched network */
-        if((*pssid_end != '\n') && (*pssid_end != '\0')){
-            pend = strchr(pssid_start, '\n');
-            if(pend != NULL){
-                ptr = pend+1;
-                continue;
-            }else{
-                break;
-            }
-        }
+		/* line start */
+        pst = ptr;
 
-        /* network ssid is same of searched network */
-        /* line end */
-        pend = strchr(pssid_start, '\n');
-        if(pend != NULL){
-            *pend = '\0';
-        }
+		/* abstract ssid */
+        pssid_start = strrchr(pst, '\t') + 1;
+		strncpy(pssid, pssid_start, SSID_LEN);
+		pssid[SSID_LEN] = '\0';
 
-        pst = strrchr(ptr, '\n');
-        if(pst != NULL){
-            pst++;
-        }else{
-            pst = ptr;
-        }
+		/* find ssid in scan results */
+		if(strcmp(pssid, ssid) == 0){
+			pflag = pst;
+            for(i=0; i<3; i++){
+				pflag = strchr(pflag, '\t');
+		pflag++;
+		}
 
-        pflag = pst;
-        for(i=0; i<3; i++){
-            pflag = strchr(pflag, '\t');
-            pflag++;
-        }
+		len = pssid_start - pflag;
+		len = len - 1;
+		strncpy(flag, pflag, len);
+		flag[len] = '\0';
+		printf("ssid %s, flag %s\n", ssid, flag);
 
-        len = pssid_start - pflag;
-        len = len - 1;
-        strncpy(flag, pflag, len);
-        flag[len] = '\0';
-        printf("ssid %s, flag %s\n", ssid, flag);
-
-        if((strstr(flag, "WPA-PSK-") != NULL)
-            || (strstr(flag, "WPA2-PSK-") != NULL)){
-            key_mgmt_info[KEY_WPA_PSK_INDEX] = 1;
-        }else if(strstr(flag, "WEP") != NULL){
-            key_mgmt_info[KEY_WEP_INDEX] = 1;
-        }else if((strcmp(flag, "[ESS]") == 0) || (strcmp(flag, "[WPS][ESS]") == 0)){
-            key_mgmt_info[KEY_NONE_INDEX] = 1;
-        }else{
-            ;
-        }
+		if((strstr(flag, "WPA-PSK-") != NULL)
+		|| (strstr(flag, "WPA2-PSK-") != NULL)){
+		key_mgmt_info[KEY_WPA_PSK_INDEX] = 1;
+		}else if(strstr(flag, "WEP") != NULL){
+		key_mgmt_info[KEY_WEP_INDEX] = 1;
+		}else if((strcmp(flag, "[ESS]") == 0) || (strcmp(flag, "[WPS][ESS]") == 0)){
+		key_mgmt_info[KEY_NONE_INDEX] = 1;
+		}else{
+		;
+		}
+		}
 
         if(pend != NULL){
             *pend = '\n';
@@ -205,12 +196,14 @@ void *wifi_scan_thread(void *args)
     while(scan_running){
         pthread_mutex_lock(&scan_mutex);
 
-        if(scan_pause == 1){
+        while(scan_pause == 1){
              pthread_cond_wait(&scan_cond, &scan_mutex);
         }
 
+
         /* set scan start flag */
         set_scan_start_flag();
+
 
         /* scan cmd */
         strncpy(cmd, "SCAN", 15);
@@ -262,12 +255,12 @@ void *wifi_scan_thread(void *args)
 
 void start_wifi_scan_thread(void *args)
 {
-    scan_running = 1;
-    pthread_create(&scan_thread_id, NULL, &wifi_scan_thread, args);
     pthread_mutex_init(&scan_mutex, NULL);
     pthread_cond_init(&scan_cond, NULL);
     pthread_mutex_init(&thread_run_mutex, NULL);
     pthread_cond_init(&thread_run_cond,NULL);
+    scan_running = 1;
+    pthread_create(&scan_thread_id, NULL, &wifi_scan_thread, args);
 }
 
 void pause_wifi_scan_thread()
@@ -280,9 +273,9 @@ void pause_wifi_scan_thread()
 void resume_wifi_scan_thread()
 {
     pthread_mutex_lock(&scan_mutex);
-    pthread_cond_signal(&scan_cond);
     scan_pause=0;
     pthread_mutex_unlock(&scan_mutex);
+    pthread_cond_signal(&scan_cond);
 }
 
 void stop_wifi_scan_thread()

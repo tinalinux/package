@@ -17,6 +17,8 @@
 //* the main method.
 int main(int argc, char** argv)
 {
+    AddVDPlugin();
+
 	CEDARX_UNUSE(argc);
 	CEDARX_UNUSE(argv);
 	int ret;

@@ -54,9 +54,13 @@ typedef struct{
     int (*connect_ap)(const char *ssid, const char *passwd, int event_label);
     int (*connect_ap_key_mgmt)(const char *ssid, tKEY_MGMT key_mgnt, const char *passwd, int event_label);
     int (*connect_ap_auto)(int event_label);
+    int (*connect_ap_with_netid)(const char *net_id, int event_label);
     int (*add_network)(const char *ssid, tKEY_MGMT key_mgnt, const char *passwd, int event_label);
     int (*disconnect_ap)(int event_label);
+    int (*remove_network)(char *ssid, tKEY_MGMT key_mgmt);
     int (*remove_all_networks)(void);
+    int (*list_networks)(char *reply, size_t reply_len, int event_label);
+	int (*get_netid)(const char *ssid, tKEY_MGMT key_mgmt, char *net_id);
 }aw_wifi_interface_t;
 
 const aw_wifi_interface_t * aw_wifi_on(tWifi_event_callback pcb, int event_label);

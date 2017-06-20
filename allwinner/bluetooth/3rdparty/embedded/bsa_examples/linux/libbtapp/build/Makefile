@@ -14,6 +14,14 @@ application := libbtapp
 os_name := linux
 BLUETOOTH_3RD_DIR := $(GLOBALPATH)/3rdparty
 
+ifeq ($(findstring arm,$(CC)), arm)
+	CPU = arm
+else
+ifeq ($(findstring aarch64, $(CC)), aarch64)
+	CPU = arm64
+endif
+endif
+
 target := libbtapp.so
 
 # include common makefile rules
@@ -23,13 +31,14 @@ include $(BLUETOOTH_3RD_DIR)/embedded/$(customer)/$(project)/app_common/build/ma
 srcdirs :=
 appsources :=
 
-GLOBAL_DEFINE += -DCUSTOM_MAC_ENABLE
+#GLOBAL_DEFINE += -DCUSTOM_MAC_ENABLE
+#GLOBAL_DEFINE += -DRANDOM_MAC_ENABLE
 
 # add ENABLE_ALSA=TRUE at the command line to enable
 ENABLE_ALSA ?= FALSE
 ifeq ($(strip $(ENABLE_ALSA)), TRUE)
   GLOBAL_DEFINE += -DPCM_ALSA
-	LINKLIBS += -lasound -lspeex
+	LINKLIBS += -lasound -lspeex-lite
 endif
 
 LINKLIBS += -luci
@@ -82,6 +91,8 @@ objlist := $(app_objs)
 .PHONY: all clean delivery
 
 all: $(target)
+	@$(STRIP) ./../../server/build/$(CPU)/bsa_server
+	@$(CP) -f ./../../server/build/$(CPU)/bsa_server ./bsa_server
 	@$(ECHO) Done building $@
 
 %.s:%.S
@@ -91,6 +102,7 @@ install:
 	@$(CP) ./../include/bluetooth_socket.h $(CONFIG_PREFIX)/usr/include
 
 $(builddir):
+	@$(ECHO) CPU is $(CPU)
 	@$(ECHO) Creating application directory '$(builddir)'.
 	-@$(MKDIR) -p $(builddir)
 

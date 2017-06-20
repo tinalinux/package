@@ -36,6 +36,7 @@ extern CdxStreamCreatorT fileStreamCtor;
 
 #if (CONFIG_HAVE_LIVE555 == OPTION_HAVE_LIVE555)
 extern CdxStreamCreatorT rtspStreamCtor;
+extern CdxStreamCreatorT rtmpStreamCtor;
 #endif
 
 extern CdxStreamCreatorT httpStreamCtor;
@@ -97,6 +98,7 @@ cdx_void AwStreamInit(cdx_void)
     AwStreamRegister(&fileStreamCtor,"file");
 #if (CONFIG_HAVE_LIVE555 == OPTION_HAVE_LIVE555)
     AwStreamRegister(&rtspStreamCtor,"rtsp");
+	AwStreamRegister(&rtmpStreamCtor,"rtmp");
 #endif
     AwStreamRegister(&httpStreamCtor,"http");
 #if(CONFIG_HAVE_SSL == OPTION_HAVE_SSL)

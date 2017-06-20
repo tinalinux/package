@@ -1,0 +1,69 @@
+menu 'demo-sh'
+    config TINATEST_DEMO_DEMO_SH_ENABLE
+        bool "Enable"
+        default n
+
+    if TINATEST_DEMO_DEMO_SH_ENABLE
+        config TINATEST_DEMO_DEMO_SH_COMMAND
+            string "command"
+            default "demo-sh.sh"
+
+        config TINATEST_DEMO_DEMO_SH_STDIN
+            string "stdin"
+            default ""
+
+        config TINATEST_DEMO_DEMO_SH_FSTDIN
+            string "fstdin"
+            default ""
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_DEMO_DEMO_SH_INFO
+            bool "INFO"
+            default n
+
+        if TINATEST_DEMO_DEMO_SH_INFO
+            config TINATEST_DEMO_DEMO_SH_DATE
+                bool "date"
+                default y if TINATEST_SYS_LOCAL_INFO_DATE
+
+            config TINATEST_DEMO_DEMO_SH_RESOURCE
+                bool "resource"
+                default y if TINATEST_SYS_LOCAL_INFO_RESOURCE
+        endif
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_DEMO_DEMO_SH_LIMIT
+            bool "LIMIT"
+            default n
+
+        if TINATEST_DEMO_DEMO_SH_LIMIT
+            config TINATEST_DEMO_DEMO_SH_RUN_TIMES
+                string "run_times"
+                default "Default"
+
+            config TINATEST_DEMO_DEMO_SH_RUN_ALONE
+                bool "run_alone"
+                default y if TINATEST_SYS_LOCAL_LIMIT_RUN_ALONE
+
+            config TINATEST_DEMO_DEMO_SH_RUN_PARALLEL
+                bool "run_parallel"
+                default y if TINATEST_SYS_LOCAL_LIMIT_RUN_PARALLEN
+
+            config TINATEST_DEMO_DEMO_SH_MAY_REBOOT
+                bool "may_reboot"
+                default y if TINATEST_SYS_LOCAL_LIMIT_MAY_REBOOT
+
+            config TINATEST_DEMO_DEMO_SH_RUN_TIME_SEC
+                string "run_time_sec"
+                default "Default"
+
+            config TINATEST_DEMO_DEMO_SH_RUN_TIME_MIN
+                string "run_time_min"
+                default "Default"
+
+            config TINATEST_DEMO_DEMO_SH_RUN_TIME_HOUR
+                string "run_time_hour"
+                default "Default"
+        endif
+    endif
+endmenu

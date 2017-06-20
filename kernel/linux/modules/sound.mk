@@ -12,7 +12,6 @@ SOUNDCORE_LOAD ?= \
 	soundcore \
 	snd \
 	snd-seq-device \
-	snd-rawmidi \
 	snd-timer \
 	snd-pcm \
 	snd-mixer-oss \
@@ -23,8 +22,8 @@ SOUNDCORE_FILES ?= \
 	$(LINUX_DIR)/sound/soundcore.ko \
 	$(LINUX_DIR)/sound/core/snd.ko \
 	$(LINUX_DIR)/sound/core/seq/snd-seq-device.ko \
-	$(LINUX_DIR)/sound/core/snd-rawmidi.ko \
 	$(LINUX_DIR)/sound/core/snd-timer.ko \
+	$(LINUX_DIR)/sound/core/snd-page-alloc.ko \
 	$(LINUX_DIR)/sound/core/snd-pcm.ko \
 	$(LINUX_DIR)/sound/core/oss/snd-mixer-oss.ko \
 	$(LINUX_DIR)/sound/core/oss/snd-pcm-oss.ko
@@ -42,7 +41,6 @@ define KernelPackage/sound-core
   KCONFIG:= \
 	CONFIG_SOUND \
 	CONFIG_SND \
-	CONFIG_SND_HWDEP \
 	CONFIG_SND_RAWMIDI \
 	CONFIG_SND_TIMER \
 	CONFIG_SND_PCM \
@@ -54,6 +52,7 @@ define KernelPackage/sound-core
 	CONFIG_SND_PCM_OSS \
 	CONFIG_SND_MIXER_OSS \
 	CONFIG_SOUND_OSS_CORE_PRECLAIM=y
+
   FILES:=$(SOUNDCORE_FILES)
   AUTOLOAD:=$(call AutoLoad,30,$(SOUNDCORE_LOAD))
 endef
@@ -71,6 +70,23 @@ endef
 
 $(eval $(call KernelPackage,sound-core))
 
+define KernelPackage/sound-core-hwdep
+  SUBMENU:=$(SOUND_MENU)
+  TITLE:=Sound hwdep support
+  DEPENDS:=@AUDIO_SUPPORT +kmod-sound-core +kmod-input-core
+  KCONFIG:= \
+	CONFIG_SND_HWDEP
+
+  FILES:=$(LINUX_DIR)/sound/core/snd-hwdep.ko
+
+  AUTOLOAD:=$(call AutoLoad,35,snd-hwdep)
+endef
+
+define KernelPackage/sound-core-hwdep/description
+ Kernel adido snd-hwdep modules for sound support
+endef
+
+$(eval $(call KernelPackage,sound-core-hwdep))
 
 define AddDepends/sound
   SUBMENU:=$(SOUND_MENU)

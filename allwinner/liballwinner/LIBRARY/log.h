@@ -8,6 +8,18 @@
 #define LOG_TAG "awplayer"
 #endif
 
+#ifndef OPTION_OS_ANDROID
+#define OPTION_OS_ANDROID 1
+#endif
+
+#ifndef OPTION_OS_LINUX
+#define OPTION_OS_LINUX 2
+#endif
+
+#ifndef CONFIG_OS
+#define CONFIG_OS OPTION_OS_LINUX
+#endif
+
 #if (CONFIG_OS == OPTION_OS_ANDROID)
     #include <cutils/log.h>
 

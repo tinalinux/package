@@ -10,9 +10,6 @@
 #include "wifi_intf.h"
 #include "wpa_supplicant_conf.h"
 
-#define MAX_ASSOC_REJECT_COUNT  3
-#define MAX_RETRIES_ON_AUTHENTICATION_FAILURE 2
-
 tWIFI_STATE  gwifi_state;
 extern char netid_connecting[];
 extern int  connecting_ap_event_label;
@@ -29,28 +26,29 @@ static int assoc_reject_count = 0;
 static int authentication_fail_count = 0;
 
 static void handle_event(int event, char * remainder) {
-    char netid_connected[4] = {0};
+    char netid_connected[NET_ID_LEN+1] = {0};
     char cmd[255] = {0}, reply[16]={0};
-    int len = 4;
+    int len = NET_ID_LEN+1;
     tWIFI_MACHINE_STATE state;
 
     switch (event){
         case DISCONNECTED:
-		  state = get_wifi_machine_state();
-		  if((state == DISCONNECTING_STATE) //call disconnect
-			  || (state == L2CONNECTED_STATE) || (state == CONNECTED_STATE)) //auto disconnect(ap shutdown)
-		  {
-		      printf("Network disconnected!\n");
-		  set_wifi_machine_state(DISCONNECTED_STATE);
-		  send_wifi_event(AP_DISCONNECTED, disconnect_ap_event_label);
-		  }
-		  break;
+			state = get_wifi_machine_state();
+			if((state == DISCONNECTING_STATE) //call disconnect
+				|| (state == L2CONNECTED_STATE) || (state == CONNECTED_STATE)) //auto disconnect(ap shutdown)
+			{
+				printf("Network disconnected!\n");
+				set_wifi_machine_state(DISCONNECTED_STATE);
+				set_cur_wifi_event(AP_DISCONNECTED);
+				call_event_callback_function(WIFIMG_NETWORK_DISCONNECTED, NULL, disconnect_ap_event_label);
+			}
+			break;
 
         case CONNECTED:
             if(netid_connecting[0] != '\0'){
                 /* get already connected netid */
                 wpa_conf_get_ap_connected(netid_connected, &len);
-                printf("connecting id %s, connected id %s\n", netid_connected, netid_connecting);
+                printf("connecting id %s, connected id %s\n", netid_connecting, netid_connected);
                 if(strcmp(netid_connected,netid_connecting) != 0){
                     /* send disconnect */
                     sprintf(cmd, "%s", "DISCONNECT");
@@ -99,7 +97,7 @@ static int dispatch_event(const char *event_str, int nread)
                     wifi_command(cmd, reply, sizeof(reply));
 
                     set_wifi_machine_state(DISCONNECTED_STATE);
-                    send_wifi_event(PASSWORD_INCORRECT, connecting_ap_event_label);
+					set_cur_wifi_event(PASSWORD_INCORRECT);
                 }
                 return 0;
             }
@@ -109,7 +107,7 @@ static int dispatch_event(const char *event_str, int nread)
         return 0;
     }
 
-    name_start = (char *)((unsigned int)event_str+11);
+    name_start = (char *)((unsigned long)event_str+11);
     name_end = strchr(name_start, ' ');
     if(name_end){
         while((name_start < name_end) && (i < 15)){
@@ -147,9 +145,8 @@ static int dispatch_event(const char *event_str, int nread)
         event = UNKNOWN;
     }
 
-    event_data = (char *)((unsigned int)event_str);
+    event_data = (char *)((unsigned long)event_str);
     if(event == DRIVER_STATE || event == LINK_SPEED){
-        printf("DRIVER_STATE or LINK_SPEED, not handle\n");
         return 0;
     }else if(event == STATE_CHANGE || event == EAP_FAILURE){
         event_data = strchr(event_str, ' ');
@@ -195,11 +192,11 @@ static int dispatch_event(const char *event_str, int nread)
 
 void *event_handle_thread(void* args)
 {
-    int nread = 0, ret = 0;
-    char buf[EVENT_BUF_SIZE] = {0};
+	char buf[EVENT_BUF_SIZE] = {0};
+	int nread = 0, ret = 0;
 
     for(;;){
-        int nread = wifi_wait_for_event(buf, sizeof(buf));
+        nread = wifi_wait_for_event(buf, sizeof(buf));
         if (nread > 0) {
             ret = dispatch_event(buf, nread);
             if(ret == 1){
@@ -217,7 +214,7 @@ void wifi_event_loop(tWifi_event_callback pcb)
 {
     /* initial */
     wifi_event_inner = AP_DISCONNECTED;
-    pthread_create(&event_thread_id, NULL, &event_handle_thread, NULL);
+    pthread_create(&event_thread_id, NULL, event_handle_thread, NULL);
 }
 
 tWIFI_EVENT_INNER  get_cur_wifi_event()
@@ -225,43 +222,10 @@ tWIFI_EVENT_INNER  get_cur_wifi_event()
     return	wifi_event_inner;
 }
 
-void send_wifi_event(tWIFI_EVENT_INNER event, int event_label)
+int set_cur_wifi_event(tWIFI_EVENT_INNER event)
 {
-    tWIFI_EVENT wifi_event;
-
-    wifi_event_inner = event;
-    switch(wifi_event_inner)
-    {
-        case AP_DISCONNECTED:
-        {
-            wifi_event = WIFIMG_NETWORK_DISCONNECTED;
-            break;
-        }
-
-        case AP_CONNECTED:
-        {
-            wifi_event = WIFIMG_NETWORK_CONNECTED;
-            break;
-        }
-
-        case PASSWORD_INCORRECT:
-        {
-            wifi_event = WIFIMG_PASSWORD_FAILED;
-            break;
-        }
-
-        case CONNECT_AP_TIMEOUT:
-        case OBTAINING_IP_TIMEOUT:
-        {
-            wifi_event = WIFIMG_CONNECT_TIMEOUT;
-            break;
-        }
-
-        default:
-            ;
-    }
-
-    call_event_callback_function(wifi_event, NULL, event_label);
+	wifi_event_inner = event;
+	return 0;
 }
 
 void *check_connect_timeout(void *args)
@@ -280,8 +244,9 @@ void *check_connect_timeout(void *args)
 
         /* password incorrect */
         if ((state == DISCONNECTED_STATE) && (event == PASSWORD_INCORRECT)){
-		  printf("check_connect_timeout exit: password failed!\n");
-            break;
+			printf("check_connect_timeout exit: password failed!\n");
+			call_event_callback_function(WIFIMG_PASSWORD_FAILED, NULL, connecting_ap_event_label);
+			break;
         }
 
         if(assoc_reject_count >= MAX_ASSOC_REJECT_COUNT){
@@ -291,7 +256,7 @@ void *check_connect_timeout(void *args)
         }
 
         i++;
-    } while((state != L2CONNECTED_STATE) && (state != CONNECTED_STATE) && (i < 200));
+    } while((state != L2CONNECTED_STATE) && (state != CONNECTED_STATE) && (i < 450));
 
     /* wifi not exist or can't connect */
 		if (get_wifi_machine_state() == CONNECTING_STATE){
@@ -299,18 +264,19 @@ void *check_connect_timeout(void *args)
         sprintf(cmd, "%s", "DISCONNECT");
         wifi_command(cmd, reply, sizeof(reply));
 
-		    set_wifi_machine_state(DISCONNECTED_STATE);
-		    send_wifi_event(CONNECT_AP_TIMEOUT, connecting_ap_event_label);
-		}
+		set_wifi_machine_state(DISCONNECTED_STATE);
+		set_cur_wifi_event(CONNECT_AP_TIMEOUT);
+		call_event_callback_function(WIFIMG_CONNECT_TIMEOUT, NULL, connecting_ap_event_label);
+	}
 
-		pthread_exit(NULL);
+	pthread_exit(NULL);
 }
 
 
 void start_check_connect_timeout(int first)
 {
     pthread_t check_timeout_id;
-    pthread_create(&check_timeout_id, NULL, &check_connect_timeout, NULL);
+    pthread_create(&check_timeout_id, NULL, check_connect_timeout, NULL);
 }
 
 void *wifi_on_check_connect_timeout(void *args)
@@ -347,7 +313,7 @@ void *wifi_on_check_connect_timeout(void *args)
 void start_wifi_on_check_connect_timeout()
 {
     pthread_t wifi_on_check_timeout_id;
-    pthread_create(&wifi_on_check_timeout_id, NULL, &wifi_on_check_connect_timeout, NULL);
+    pthread_create(&wifi_on_check_timeout_id, NULL, wifi_on_check_connect_timeout, NULL);
 }
 
 
@@ -359,6 +325,16 @@ void set_scan_start_flag()
 int get_scan_status()
 {
     return scan_complete;
+}
+
+void reset_assoc_reject_count()
+{
+	assoc_reject_count = 0;
+}
+
+int get_assoc_reject_count()
+{
+	return assoc_reject_count;
 }
 
 int add_wifi_event_callback_inner(tWifi_event_callback pcb)

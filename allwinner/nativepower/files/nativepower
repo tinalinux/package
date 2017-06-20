@@ -1,0 +1,19 @@
+package config
+
+config properties awake_timeout
+    option time -1
+
+config scene boot_complete
+	option bootlock 1
+	option cpu_hot 1
+	option cpu_gov interactive
+
+config scene other
+	option bootlock
+	option cpu_freq
+	option cpu_gov
+	option cpu_hot
+	option roomage
+	option gpu_freq
+	option dram_freq
+	option dram_scene

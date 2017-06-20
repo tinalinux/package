@@ -235,6 +235,7 @@ typedef struct VIDEOFBMINFO
     void*                pFbmSecond;
     FbmBufInfo           pFbmBufInfo;
     unsigned int         bIs3DStream;
+    unsigned int         bTwoStreamShareOneFbm;
     VideoPicture*        pMajorDispFrame;
     VideoPicture*        pMajorDecoderFrame;
     unsigned int         nMinorYBufOffset;
@@ -285,6 +286,8 @@ typedef struct VID_PERFORMANCE
 }VDecodePerformaceInfo;
 
 typedef void* VideoDecoder;
+
+extern void AddVDPlugin(void);
 
 VideoDecoder* CreateVideoDecoder(void);
 

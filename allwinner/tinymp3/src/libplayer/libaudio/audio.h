@@ -20,22 +20,34 @@ typedef struct {
 } ao_format_t;
 
 /**
+ * ao_device_t
+ * @handler:
+ * @hw_gain:
+ * @fmt:
+ */
+typedef struct {
+	void *handler;	/* number of audio channels */
+	ao_format_t fmt;
+	int hw_gain;
+} ao_device_t;
+
+/**
  * audio_output_t
  */
 typedef struct {
 	char	*name;
 
-	int (*init)(int argc, char **argv);
-	void (*deinit)(void);
+	int (*init)(ao_device_t *device);
+	void (*deinit)(ao_device_t *device);
 
-	int (*start)(ao_format_t *fmt);
-	void (*play)(short *buf, int samples);
-	void (*stop)(void);
+	int (*start)(ao_device_t *device);
+	void (*play)(ao_device_t *device, short *buf, int samples);
+	void (*stop)(ao_device_t *device);
 
 	void (*help)(void);
-	void (*volume)(double vol);
-	int (*dev_try)(void);
-	int (*get_space)(void);
+	void (*volume)(ao_device_t *device, int vol);
+	int (*dev_try)(ao_device_t *device);
+	int (*get_space)(ao_device_t *device);
 } audio_output_t;
 
 /**

@@ -18,19 +18,16 @@
 #define _HEALTHD_H_
 
 #include <sys/types.h>
-struct BatteryProperties {
-    bool chargerAcOnline;
-    bool chargerUsbOnline;
-    bool chargerWirelessOnline;
-    int batteryStatus;
-    int batteryHealth;
-    bool batteryPresent;
-    int batteryLevel;
-    int batteryVoltage;
-    int batteryTemperature;
-//    status_t writeToParcel(Parcel* parcel) const;
-//    status_t readFromParcel(Parcel* parcel);
-};
+#include <string.h>
+#include "batinfo/batinfo.h"
+
+#if 0
+#define DLOG(fmt, arg...) 		printf("[%s:%u] "fmt"", __FUNCTION__, __LINE__, ##arg)
+#else
+#define DLOG(fmt, arg...)
+#endif
+
+
 
 struct healthd_config{
 	int periodic_chores_interval_fast;
@@ -59,6 +56,8 @@ struct sockaddr_nl {
 	__u32		nl_groups;
 };
 */
+
+
 
 int healthd_register_event(int fd, void(*handler)(uint32_tt));
 void healthd_battery_update();

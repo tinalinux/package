@@ -113,10 +113,12 @@ int app_playlist_create(const char *p_path, char ***ppp_playlist)
             if (app_playlist_file_supported(full_path))
             {
                 /* (Re)allocate the playlist with the appropriate size */
+                char **pp_playlist_tmp = pp_playlist;
                 pp_playlist = realloc(pp_playlist, (nb_entry + 1) * sizeof(char *));
                 if (pp_playlist == NULL)
                 {
                     APP_ERROR1("realloc failed: %d", errno);
+                    app_playlist_free(pp_playlist_tmp);
                     closedir(p_directory);
                     return -1;
                 }

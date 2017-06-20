@@ -65,7 +65,7 @@ prepare_env(){
         cp /lib/libgcc_s.so* $UPGRADE_ROOT/lib/
         cp /lib/libc.so* $UPGRADE_ROOT/lib/
 
-        shell_list="ls tar mkdir dd echo cat sh cp date df grep kill ln mount mv wget"
+        shell_list="ls tar mkdir dd echo cat sh cp date df grep kill ln mount mv"
         for i in $shell_list; do
             ln -s $UPGRADE_ROOT/bin/busybox $UPGRADE_ROOT/bin/$i
         done
@@ -173,9 +173,7 @@ do_write_partition(){
 do_upgrade_image(){
     echo do_upgrade_image ......
 
-    if [ -e /dev/by-name/extend ]; then
-        prepare_env
-    fi
+    prepare_env
 
     [ -f $UPGRADE_IMG_DIR/$RAMDISK_IMG ] && {
         #set system misc flag
@@ -185,7 +183,7 @@ do_upgrade_image(){
         #         upgrade process ->
         #         get all image ->
         #         do again
-        if [ -e /dev/by-name/extend];then
+        if [ -e /dev/by-name/extend ];then
             do_write_partition $UPGRADE_IMG_DIR/$RAMDISK_IMG "extend"
         else
             do_write_partition $UPGRADE_IMG_DIR/$RAMDISK_IMG "recovery"

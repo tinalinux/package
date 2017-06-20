@@ -28,8 +28,8 @@ include $(BUILD_DIR)/cmake.mk
 
 CMAKE_OPTIONS=-DBUILDARCH=$(CONFIG_ARCH) \
 	-DENABLEEXAMPLES=0 \
-	-DNODE_EXECUTABLE=$(STAGING_DIR)/host/bin/node \
-	-DSWIG_DIR=$(STAGING_DIR)/host/bin
+	-DNODE_EXECUTABLE=$(OUT_DIR)/host/bin/node \
+	-DSWIG_DIR=$(OUT_DIR)/host/bin
 
 TARGET_CFLAGS+=-I$(STAGING_DIR)/usr/include/node
 
@@ -43,8 +43,8 @@ endef
 define Package/libmraa/install
 	$(INSTALL_DIR) $(1)/usr/lib/{node/mraa,python2.7/site-packages} $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/libmraa.so* $(1)/usr/lib/
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/node_modules/mraa/* $(1)/usr/lib/node/mraa/
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/python2.7/site-packages/* $(1)/usr/lib/python2.7/site-packages/
+#	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/node_modules/mraa/* $(1)/usr/lib/node/mraa/
+#	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/python2.7/site-packages/* $(1)/usr/lib/python2.7/site-packages/
 #	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/share/mraa/examples/python/blink-io8.py $(1)/usr/bin/
 endef
 

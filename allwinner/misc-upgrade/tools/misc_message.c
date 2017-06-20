@@ -75,6 +75,7 @@ int get_bootloader_message_block(struct bootloader_message *out,
     int count = fread(&temp, sizeof(temp), 1, f);
     if (count != 1) {
         LOGE("Failed reading %s\n(%s)\n", device, strerror(errno));
+        fclose(f);
         return -1;
     }
     if (fclose(f) != 0) {
@@ -107,9 +108,10 @@ int set_bootloader_message_block(const struct bootloader_message *in,
     int count = fwrite(in, sizeof(*in), 1, f);
     if (count != 1) {
         LOGE("Failed writing %s\n(%s)\n", device, strerror(errno));
+        fclose(f);
         return -1;
     }
-    fsync(f);
+    fflush(f);
     if (fclose(f) != 0) {
         LOGE("Failed closing %s\n(%s)\n", device, strerror(errno));
         return -1;

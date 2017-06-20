@@ -20,7 +20,7 @@ include $(BUILD_DIR)/kernel.mk
 
 # Name and release number of this package
 PKG_NAME:=smartlinkd
-PKG_VERSION:=0.0.1
+PKG_VERSION:=0.2.1
 PKG_RELEASE:=1
 
 
@@ -31,7 +31,7 @@ include $(BUILD_DIR)/package.mk
 define Package/$(PKG_NAME)/Default
   SECTION:=utils
   CATEGORY:=Allwinner
-  DEPENDS:=+libpthread +libstdcpp +liballwinner-base +alsa-lib
+  DEPENDS:=+libpthread +libstdcpp +liballwinner-base +alsa-lib +wifimanager +libopenssl +softap
 endef
 
 define Package/$(PKG_NAME)
@@ -46,6 +46,27 @@ define Package/$(PKG_NAME)-demo
   DEPENDS:=$(PKG_NAME)
 endef
 
+#dhd_priv ,add by Kirin
+define Package/$(PKG_NAME)-dhd_priv
+  $(call Package/$(PKG_NAME)/Default)
+  TITLE:=smartlinkd dhd_priv
+  DEPENDS:=$(PKG_NAME)
+endef
+
+#smartlink_raw ,add by Kirin
+define Package/$(PKG_NAME)-smartlink_raw
+  $(call Package/$(PKG_NAME)/Default)
+  TITLE:=smartlinkd smartlink_raw
+  DEPENDS:=$(PKG_NAME)
+endef
+
+#softAP_demo ,add by Kirin
+define Package/$(PKG_NAME)-smartlink_softAP
+	$(call Package/$(PKG_NAME)/Default)
+	TITLE:= smartlinkd smartlinkd_softAP demo
+	DEPENDS:=$(PKG_NAME)
+endef
+
 define Package/$(PKG_NAME)/description
 	wifi configuration for none input platform
 endef
@@ -54,10 +75,23 @@ define Package/$(PKG_NAME)-demo/description
 	client demo
 endef
 
+#dhd_priv demo,add by Kirin
+define Package/$(PKG_NAME)-dhd_priv/description
+	dhd_priv demo
+endef
+
+#smartlink_raw demo,add by Kirin
+define Package/$(PKG_NAME)-smartlink_raw/description
+	smartlink_raw demo
+endef
+
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)/
 	$(CP) -r ./src $(PKG_BUILD_DIR)/
 	$(CP) -r ./demo $(PKG_BUILD_DIR)/
+	$(CP) -r ./dhd_priv $(PKG_BUILD_DIR)/
+	$(CP) -r ./raw $(PKG_BUILD_DIR)/
+	$(CP) -r ./softAP $(PKG_BUILD_DIR)/
 endef
 
 define Build/Configure
@@ -86,6 +120,42 @@ define Build/Compile
 		CC="$(TARGET_CC)" \
 		CXX="$(TARGET_CXX)" \
 		CFLAGS="$(TARGET_CFLAGS)"\
+		LDFLAGS="$(TARGET_LDFLAGS)" \
+		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
+		all
+
+	#compile smartlink_raw
+	$(MAKE) -C $(PKG_BUILD_DIR)/raw \
+		MAKE="$(MAKE)" \
+		ARCH="$(TARGET_ARCH)" \
+		AR="$(TARGET_AR)" \
+		CC="$(TARGET_CC)" \
+		CXX="$(TARGET_CXX)" \
+		CFLAGS="$(TARGET_CFLAGS)"\
+		LDFLAGS="$(TARGET_LDFLAGS)" \
+		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
+		all
+
+	#compile dhd_priv
+	$(MAKE) -C $(PKG_BUILD_DIR)/dhd_priv \
+		MAKE="$(MAKE)" \
+		ARCH="$(TARGET_ARCH)" \
+		AR="$(TARGET_AR)" \
+		CC="$(TARGET_CC)" \
+		CXX="$(TARGET_CXX)" \
+		CFLAGS="$(TARGET_CFLAGS)"\
+		LDFLAGS="$(TARGET_LDFLAGS)" \
+		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
+		all
+
+	#compile softAP demo
+	$(MAKE) -C $(PKG_BUILD_DIR)/softAP \
+		MAKE="$(MAKE)" \
+		ARCH="$(TARGET_ARCH)" \
+		AR="$(TARGET_AR)" \
+		CC="$(TARGET_CC)" \
+		CXX="$(TARGET_CXX)" \
+		CFLAGS="$(TARGET_CFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS)" \
 		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
 		all
@@ -122,5 +192,26 @@ define Package/$(PKG_NAME)-demo/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/smartlinkd_demo $(1)/usr/bin
 endef
 
+#dhd_priv,add by Kirin
+define Package/$(PKG_NAME)-dhd_priv/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/dhd_priv $(1)/usr/bin
+endef
+
+#smartlink_raw,add by Kirin
+define Package/$(PKG_NAME)-smartlink_raw/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/smartlink_raw $(1)/usr/bin
+endef
+
+#softAP demo, add by Kirin
+define Package/$(PKG_NAME)-smartlink_softAP/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/smartlink_softAP $(1)/usr/bin
+endef
+
 $(eval $(call BuildPackage,$(PKG_NAME)))
 $(eval $(call BuildPackage,$(PKG_NAME)-demo))
+$(eval $(call BuildPackage,$(PKG_NAME)-dhd_priv))
+$(eval $(call BuildPackage,$(PKG_NAME)-smartlink_raw))
+$(eval $(call BuildPackage,$(PKG_NAME)-smartlink_softAP))

@@ -81,6 +81,19 @@ typedef struct
 
 } tAPP_AVK_CB;
 
+#ifdef PCM_ALSA
+/*
+ * Types
+ * pcm params
+ */
+typedef struct
+{
+    snd_pcm_format_t format;
+    unsigned int  num_channel;
+    unsigned int  sample_rate;
+}pcm_params;
+#endif
+
 /* Callback to application for connection events */
 typedef void ( tAvkCallback)(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data);
 
@@ -96,6 +109,19 @@ typedef void ( tAvkCallback)(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data);
 **
 *******************************************************************************/
 int app_avk_init(tAvkCallback pcb /* = NULL */);
+
+/*******************************************************************************
+**
+** Function         app_avk_init_no_avrcp
+**
+** Description      Init AVK application without avrcp
+**
+** Parameters       Application callback (if null, default will be used)
+**
+** Returns          0 if successful, error code otherwise
+**
+*******************************************************************************/
+int app_avk_init_no_avrcp(tAvkCallback pcb /* = NULL */);
 
 /*******************************************************************************
 **
@@ -677,6 +703,9 @@ void app_avk_reg_notfn_rsp(UINT8 volume, UINT8 rc_handle, UINT8 label, UINT8 eve
  *******************************************************************************/
 UINT8 app_avk_get_label();
 
+#ifdef PCM_ALSA
 int app_avk_close_pcm_alsa(void);
-
+int app_avk_resume_pcm_alsa(void);
+int app_avk_connect_by_addr(BD_ADDR bd_addr);
+#endif
 #endif /* APP_AVK_H_ */

@@ -48,7 +48,6 @@ define Build/Prepare
 endef
 
 define Build/Compile
-
 	$(MAKE) -C $(PKG_BUILD_DIR)/src \
 		MAKE="$(MAKE)" \
 		ARCH="$(TARGET_ARCH)" \
@@ -59,7 +58,6 @@ define Build/Compile
 		LDFLAGS="$(TARGET_LDFLAGS)" \
 		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
 		all
-
 endef
 
 define Build/InstallDev

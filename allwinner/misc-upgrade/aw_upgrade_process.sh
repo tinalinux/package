@@ -1,8 +1,12 @@
 #!/bin/sh
 
 . /sbin/aw_upgrade_utils.sh
-. /sbin/aw_upgrade_vendor.sh
 . /sbin/aw_upgrade_image.sh
+if [ -f /sbin/aw_upgrade_vendor.sh ]; then
+	. /sbin/aw_upgrade_vendor.sh
+else
+	. /sbin/aw_upgrade_vendor_default.sh
+fi
 
 #UPGRADE_SH=/sbin/aw_upgrade_image.sh
 UPGRADE_SH=do_upgrade

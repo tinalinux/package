@@ -1,0 +1,107 @@
+#!/bin/sh
+
+# get kernel_version
+#
+# echo-example:
+#    3.4.39
+# example:
+#   var=`get_kernel_version`
+_get_kernel_version()
+{
+    uname -r
+}
+
+# get platform
+#
+# echo-example:
+#    azalea-evb
+# example:
+#   var=`get_platform`
+_get_target()
+{
+    ubus call system board | grep "\"target\"" | sed 's/\"\|\\/ /g' | awk '{print $3}'
+}
+
+# get target
+#
+# echo-example:
+#    R58
+# example:
+#   var=`get_target`
+_get_platform()
+{
+    local target=`_get_target`
+    case "${target}" in
+        azalea-*)
+            echo "R40"
+            ;;
+        octopus-*)
+            echo "R58"
+            ;;
+        astar-*)
+            echo "R16"
+            ;;
+        nuclear-*)
+            echo "R8"
+            ;;
+        tulip-*)
+            echo "R18"
+            ;;
+        *)
+            echo "(NULL)"
+            ;;
+    esac
+}
+
+# get boot_type
+#
+# echo:
+#    "sdcard" or "emmc" or "nand" or "nor-flash"
+# example:
+#   var=`get_boot_type`
+_get_boot_media()
+{
+    local mem=`echo "$partitions" | sed 's/\:/\n/g' | grep "rootfs@" | awk 'BEGIN{FS="@"} {print $2}'`
+    case "$mem" in
+        mmcblk*)
+            local kversion=$(_get_kernel_version)
+            case "$kversion" in
+                3.4*)
+                    find /sys/devices -name "mmc0" -type d | grep "sunxi-mmc\.2" &>/dev/null \
+                        && echo "emmc" \
+                        || echo "sdcard"
+                    ;;
+                3.10*)
+                    find /sys/devices -name "mmc0" -type d | grep "sdc2" &>/dev/null \
+                        && echo "emmc" \
+                        || echo "sdcard"
+                    ;;
+                4.4*)
+                    ;;
+            esac
+            ;;
+        nand*)
+            echo nand
+            ;;
+        mtdblk*)
+            echo nor-flash
+            ;;
+    esac
+}
+
+# get kernel_version,platform,target,boot media
+#
+# echo:
+#    TinaLinux <kernel_version> <RXX> <TARGET> <Boot from>
+# echo-example:
+#    TinaLinux kernel-3.4.39 R58 octopus-sch sdcard
+# example:
+#   var=`get_sysinfo`
+if [ -n "$1" ]; then
+    echo $(_get_kernel_version) > $1
+    echo $(_get_platform) >> $1
+    echo $(_get_target) >> $1
+    echo $(_get_boot_media) >> $1
+else
+    echo "TinaLinux kernel-$(_get_kernel_version) $(_get_platform) $(_get_target) $(_get_boot_media)"
+fi

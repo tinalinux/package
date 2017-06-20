@@ -1,10 +1,9 @@
-TARGET          = cameratest
-INCLUDES        += -I. -Icommon/
-LIBS            += -lpthread -lm -lrt
+TARGET			=	cameratest
+INCLUDES		+=	-I$(STAGING_DIR)/usr/include/allwinner/include -I$(STAGING_DIR)/usr/include/allwinner
+LIBS			+=  -lpthread -ldl -lrt \
 
-PLATFORM_VIDEO = common/video.c
-SRCS    = main.c common/hawkview.c common/video_helper.c $(PLATFORM_VIDEO)
-OBJS    = $(SRCS:.c=.o)
+SRCS	= cameratest.c common.c fifo.c camera_detect.c camera_capture.c
+OBJS	= $(SRCS:.c=.o)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
@@ -13,6 +12,7 @@ $(TARGET): $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LIBS) $(LDFLAGS)
 
 all:$(TARGET)
+
 
 clean:
 	rm -rf $(TARGET) *.o *.a *~

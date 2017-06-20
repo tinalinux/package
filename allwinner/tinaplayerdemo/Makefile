@@ -14,7 +14,8 @@ define Package/tinaplayerdemo
   SECTION:=utils
   CATEGORY:=Allwinner
   TITLE:=CedarX2.6 tina player utils for softwinner
-  DEPENDS:=+liballwinner
+  DEPENDS:=+liballwinner \
+		+alsa-utils
 endef
 
 define Package/tinaplayerdemo/description
@@ -24,6 +25,41 @@ endef
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(CP) -r ./src/* $(PKG_BUILD_DIR)/
+ifeq ($(TARGET_BOARD_PLATFORM),astar)
+	$(CP) r16_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),octopus)
+	$(CP) r58_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),azalea)
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+	$(CP) r40_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),tulip)
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+	$(CP) r18_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),sitar)
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+	$(CP) c600_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),cello)
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+	$(CP) G102_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),banjo)
+	$(info *****************platform = $(TARGET_BOARD_PLATFORM)**************)
+	$(CP) MR100_tinaplayerdemo.sh $(PKG_BUILD_DIR)/tinaplayerdemo
+endif
+
 endef
 
 define Build/Compile
@@ -34,13 +70,15 @@ define Build/Compile
 		CC="$(TARGET_CC)" \
 		CXX="$(TARGET_CXX)" \
 		CFLAGS="$(TARGET_CFLAGS)" \
-		LDFLAGS="$(TARGET_LDFLAGS)"
+		LDFLAGS="$(TARGET_LDFLAGS)" \
+		TARGET_BOARD="$(TARGET_BOARD_PLATFORM)"
 endef
 
 
 define Package/tinaplayerdemo/install
 	$(INSTALL_DIR) $(1)/usr/bin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/tinaplayerdemo					 $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/realtinaplayerdemo					 $(1)/usr/bin/
 endef
 
 $(eval $(call BuildPackage,tinaplayerdemo))

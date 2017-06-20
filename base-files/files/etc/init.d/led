@@ -2,7 +2,6 @@
 # Copyright (C) 2008 OpenWrt.org
 
 START=96
-
 load_led() {
 	local name
 	local sysfs
@@ -13,7 +12,6 @@ load_led() {
 	local delayon
 	local delayoff
 	local interval
-
 	config_get sysfs $1 sysfs
 	config_get name $1 name "$sysfs"
 	config_get trigger $1 trigger "none"

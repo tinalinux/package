@@ -19,9 +19,8 @@ include $(TOPDIR)/rules.mk
 
 # Name and release number of this package
 PKG_NAME:=cameratest
-PKG_VERSION:=0.0.1
+PKG_VERSION:=1.0
 PKG_RELEASE:=1
-
 
 # This specifies the directory where we're going to build the program.
 # The root build directory, $(BUILD_DIR), is by default the build_mipsel
@@ -39,15 +38,8 @@ include $(BUILD_DIR)/package.mk
 define Package/cameratest
   SECTION:=utils
   CATEGORY:=Allwinner
-  TITLE:=camerateset just test the camera
-  DEPENDS:=+libpthread
-endef
+  TITLE:=camerateset test camera sensor
 
-
-# Uncomment portion below for Kamikaze and delete DESCRIPTION variable above
-define Package/cameratest/description
-	If you can't figure out what this program does, you're probably
-	brain-dead and need immediate medical attention.
 endef
 
 # Specify what needs to be done to prepare for building the package.
@@ -58,18 +50,17 @@ endef
 # much easier to do it this way.
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) ./src/* $(PKG_BUILD_DIR)/
-endef
-
-define Build/Configure
+	$(CP) -r ./src/* $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile
-	$(MAKE) -C $(PKG_BUILD_DIR) \
+	$(MAKE) -C $(PKG_BUILD_DIR)/ \
+		ARCH="$(TARGET_ARCH)" \
+		AR="$(TARGET_AR)" \
 		CC="$(TARGET_CC)" \
-		CFLAGS="$(TARGET_CFLAGS)" -Wall \
+		CXX="$(TARGET_CXX)" \
+		CFLAGS="$(TARGET_CFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS)" \
-		LIBS="-lpthread" \
 		all
 endef
 
@@ -85,8 +76,8 @@ endef
 # command to copy the binary file from its current location (in our case the build
 # directory) to the install directory.
 define Package/cameratest/install
-	$(INSTALL_DIR) $(1)/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cameratest $(1)/bin/
+	$(INSTALL_DIR) $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cameratest $(1)/usr/bin/
 endef
 
 

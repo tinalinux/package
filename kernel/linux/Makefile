@@ -12,11 +12,7 @@ PKG_NAME:=kernel
 PKG_FLAGS:=hold
 
 PKG_BUILD_DIR:=$(KERNEL_BUILD_DIR)/packages
-SCAN_DEPS=modules/*.mk \
-	  $(TOPDIR)/target/allwinner/$(TARGET_BOARD)/modules.mk \
-	  $(TOPDIR)/build/netfilter.mk \
-	  $(TOPDIR)/target/allwinner/generic/modules.mk \
-	  $(TOPDIR)/target/allwinner/$(TARGET_PLATFORM)-common/modules.mk
+SCAN_DEPS= modules/*.mk $(TOPDIR)/target/allwinner/$(TARGET_BOARD)/modules.mk $(TOPDIR)/build/netfilter.mk $(TOPDIR)/target/allwinner/generic/modules.mk $(TOPDIR)/target/allwinner/$(TARGET_PLATFORM)-common/modules.mk
 
 PKG_LICENSE:=GPLv2
 PKG_LICENSE_FILES:=

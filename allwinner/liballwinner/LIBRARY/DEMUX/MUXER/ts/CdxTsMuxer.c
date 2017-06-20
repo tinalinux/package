@@ -220,12 +220,16 @@ static int __TsMuxerSetMediaInfo(CdxMuxerT *mux, CdxMuxerMediaInfoT *p_media_inf
 static int __TsMuxerWriteHeader(CdxMuxerT *mux)
 {
     TsMuxContext *impl = (TsMuxContext*)mux;
-    cdx_int8 *p_cache = NULL;
-    cdx_uint32 cache_size = 0;
-    cdx_uint32 video_id = impl->streams[0]->codec.codec_id;
+    CdxFsWriterInfo *p_fs;
+
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappeared, can't write header!");
+        return -1;
+    }
 
 #if FS_WRITER
-    CdxFsWriterInfo *p_fs = &impl->fs_writer_info;
+    p_fs = &impl->fs_writer_info;
 
     if (p_fs->mp_fs_writer)
     {
@@ -236,6 +240,9 @@ static int __TsMuxerWriteHeader(CdxMuxerT *mux)
     if (impl->stream_writer)
     {
         FSWRITEMODE mode = p_fs->m_fs_writer_mode;
+        cdx_int8 *p_cache = NULL;
+        cdx_uint32 cache_size = 0;
+        cdx_uint32 video_id = impl->streams[0]->codec.codec_id;
         if (FSWRITEMODE_CACHETHREAD == mode)
         {
             logd("FSWRITEMODE_CACHETHREAD == mode\n");
@@ -296,12 +303,22 @@ static int __TsMuxerWriteExtraData(CdxMuxerT *mux, unsigned char *vos_data, int 
 static int __TsMuxerWritePacket(CdxMuxerT *mux, CdxMuxerPacketT *packet)
 {
     TsMuxContext *impl = (TsMuxContext*)mux;
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappeared, can't write packet!");
+        return -1;
+    }
     return TsWritePacket(impl, packet);
 }
 
 static int __TsMuxerWriteTrailer(CdxMuxerT *mux)
 {
     TsMuxContext *impl = (TsMuxContext*)mux;
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappeared, can't write trailer!");
+        return -1;
+    }
     return TsWriteTrailer(impl);
 }
 
@@ -312,15 +329,31 @@ static int __TsMuxerControl(CdxMuxerT *mux, int u_cmd, void *p_param)
     switch (u_cmd)
     {
         case SET_FS_WRITE_MODE:
+        {
             logd("SET_FS_WRITE_MODE\n");
             impl->fs_writer_info.m_fs_writer_mode = *((FSWRITEMODE*)p_param);
             break;
+        }
         case SET_CACHE_MEM:
+        {
             impl->fs_writer_info.m_cache_mem_info = *((CdxFsCacheMemInfo*)p_param);
             break;
+        }
         case SET_FS_SIMPLE_CACHE_SIZE:
+        {
             impl->fs_writer_info.m_fs_simple_cache_size = *((cdx_int32*)p_param);
             break;
+        }
+        case SET_IS_SDCARD_DISAPPEAR:
+        {
+            impl->is_sdcard_disappear = *((cdx_uint8*)p_param);
+            break;
+        }
+        case GET_IS_SDCARD_DISAPPEAR:
+        {
+            *((cdx_uint8*)p_param) = impl->is_sdcard_disappear;
+            break;
+        }
         default:
             break;
     }
@@ -331,12 +364,11 @@ static int __TsMuxerClose(CdxMuxerT *mux)
 {
     TsMuxContext *impl = (TsMuxContext*)mux;
     TsWriter *ts = (TsWriter*)impl->priv_data;
-    AVStream *st = NULL;
     cdx_int32 i;
 
     for(i=0;i<MAX_STREAMS_IN_TS_FILE;i++)
     {
-        st = impl->streams[i];
+        AVStream *st = impl->streams[i];
         if(st)
         {
             if(st->priv_data)

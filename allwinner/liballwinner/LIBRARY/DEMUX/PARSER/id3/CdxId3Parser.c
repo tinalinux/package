@@ -1123,8 +1123,11 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
     cdx_int32  frameinfoseg=0;
     cdx_int32  TxtEncodeflag;
     cdx_int32  ulLanguage_encoding = 0;
+	struct Id3Pic* thiz = NULL,*tmp = NULL;
 
-    id3 = (Id3ParserImplS *)parser;
+	id3 = (Id3ParserImplS *)parser;
+	if(id3->forceStop == 1)
+		goto ForceExit;
     id3->mInforBufLeftLength = INFLEN;//less than 8k
     id3->mInforBuf = id3->mInfor;
     memset(id3->mInforBuf,0,id3->mInforBufLeftLength);
@@ -1168,6 +1171,10 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
            Id3v2lenRet += 10;
         while((Id3v2len>=10)&&(frameinfoseg<ID3TAGNUM))
         {
+			if(id3->forceStop == 1)
+			{
+				goto ForceExit;
+			}
             if(Id3Version == 1) //ID3V2.2
             {
                 ID3FRAME.UID = ID3PsrGetBsInByte(3,id3,1);
@@ -1427,6 +1434,10 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
                 i = 0;
                 do
                 {
+					if(id3->forceStop == 1)
+					{
+						goto ForceExit;
+					}
                     data= (char )ID3PsrGetBsInByte(1,id3,1);
                     GenreTemp[i]= data;
                     i++;
@@ -1458,6 +1469,10 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
                 i = 0;
                 do
                 {
+					if(id3->forceStop == 1)
+					{
+						goto ForceExit;
+					}
                     data= (cdx_int8)ID3PsrGetBsInByte(1,id3,1);
                     if((TxtEncodeflag ==1)||(TxtEncodeflag ==2))
                     {
@@ -1550,6 +1565,10 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
     while(BsVal == 0x494433/*ID3*/)
     {
         cdx_uint8 *p = (cdx_uint8*)temp;
+		if(id3->forceStop == 1)
+		{
+			goto ForceExit;
+		}
         for(i=0;i<10;i++)
         {
             *p++ = ID3PsrShowBs(i,1,id3);
@@ -1565,6 +1584,30 @@ cdx_int32    ID3PsrGeTID3_V2(Id3ParserImplS *parser)  //IF HAVE RETURN ID3 tag l
         BsVal >>=8;
     }
     return    Id3v2lenRet;
+ForceExit:
+	thiz = NULL;
+	tmp = NULL;
+	thiz = id3->pAlbumArt;
+	id3->pAlbumArt = NULL;
+	while(thiz != NULL)
+	{
+		if(thiz->addr!=NULL)
+		{
+			free(thiz->addr);
+			CDX_LOGE("FREE PIC");
+			thiz->addr = NULL;
+		}
+		tmp = thiz;
+		thiz = thiz->father;
+		if(tmp!=NULL)
+		{
+			free(tmp);
+			id3->pAlbumArtid--;
+			CDX_LOGE("FREE PIC COMPLETE pAlbumArtid:%d",id3->pAlbumArtid);
+			tmp = NULL;
+		}
+	}
+	return -1;
 }
 
 static int Id3Init(CdxParserT *id3_impl)
@@ -1624,6 +1667,29 @@ static int Id3Init(CdxParserT *id3_impl)
     logd("impl->newurl(%s), impl->file_offset(%lld)", impl->newurl, impl->file_offset);
     impl->cdxDataSource.uri = impl->newurl;
 
+    CdxStreamProbeDataT *probeData = CdxStreamGetProbeData(impl->stream);
+    if (probeData->len > impl->file_offset)
+    {
+        probeData->len -= impl->file_offset;
+		CDX_LOGD("impl->child = %p,impl->stream = %p,impl->childStream = %p",impl->child,impl->stream,impl->childStream);
+        memmove(probeData->buf, probeData->buf + impl->file_offset, probeData->len);
+        ret = CdxParserOpen(impl->stream, NO_NEED_DURATION, &impl->lock,
+            &impl->forceStop, &impl->child, NULL);
+		CDX_LOGD("ret = %d,impl->child = %p,impl->stream = %p,impl->childStream = %p",ret,impl->child,impl->stream,impl->childStream);
+        if (ret == 0)
+        {
+            impl->shareStreamWithChild = 1;
+            impl->mErrno = PSR_OK;
+            return 0;
+        }
+        else if (impl->child)
+        {
+            CdxParserClose(impl->child);
+			impl->child = NULL;
+			impl->stream = NULL;
+        }
+    }
+
     ret = CdxParserPrepare(&impl->cdxDataSource, NO_NEED_DURATION, &impl->lock, &impl->forceStop,
         &impl->child, &impl->childStream, NULL, NULL);
     if(ret < 0)
@@ -1645,8 +1711,6 @@ static cdx_int32 __Id3ParserControl(CdxParserT *parser, cdx_int32 cmd, void *par
     struct Id3ParserImplS *impl = NULL;
     impl = (Id3ParserImplS*)parser;
     (void)param;
-    if(!impl->child)
-        return CDX_SUCCESS;
     switch (cmd)
     {
         case CDX_PSR_CMD_DISABLE_AUDIO:
@@ -1654,10 +1718,21 @@ static cdx_int32 __Id3ParserControl(CdxParserT *parser, cdx_int32 cmd, void *par
         case CDX_PSR_CMD_SWITCH_AUDIO:
             break;
         case CDX_PSR_CMD_SET_FORCESTOP:
-            CdxParserForceStop(impl->child);
+			impl->forceStop = 1;
+			if(impl->child){
+				CdxParserForceStop(impl->child);
+			}else if(impl->childStream){
+				CdxStreamForceStop(impl->childStream);
+			}
+
           break;
         case CDX_PSR_CMD_CLR_FORCESTOP:
-            CdxParserClrForceStop(impl->child);
+			impl->forceStop = 0;
+			if(impl->child){
+				CdxParserClrForceStop(impl->child);
+			}else if(impl->childStream){
+				CdxStreamClrForceStop(impl->childStream);
+			}
             break;
         default :
             CDX_LOGW("not implement...(%d)", cmd);
@@ -1804,10 +1879,29 @@ static cdx_int32 __Id3ParserClose(CdxParserT *parser)
         }
     }
 #endif
-    if(impl->child)
-        CdxParserClose(impl->child);
+	CDX_LOGD("impl->child = %p,impl->childStream = %p,impl->stream = %p",impl->child,impl->childStream,impl->stream);
+	if(impl->shareStreamWithChild == 0){
+		if(impl->child){
+	        CdxParserClose(impl->child);
+			impl->child = NULL;
+			impl->childStream =NULL;
+	    }else if(impl->childStream){
+			CdxStreamClose(impl->childStream);
+			impl->childStream = NULL;
+		}
+	}else{
+		if(impl->child){
+	        CdxParserClose(impl->child);
+			impl->child = NULL;
+			impl->stream =NULL;
+	    }else if(impl->stream){
+			CdxStreamClose(impl->stream);			impl->stream = NULL;
+		}	}
     pthread_mutex_destroy(&impl->lock);
-    CdxStreamClose(impl->stream);    CdxFree(impl);    return CDX_SUCCESS;
+    CdxFree(impl);
+    CDX_LOGD("return CDX_SUCCESS:impl->child = %p,impl->childStream = %p,impl->stream = %p",
+		impl->child,impl->childStream,impl->stream);
+    return CDX_SUCCESS;
 }
 
 static struct CdxParserOpsS id3ParserOps =

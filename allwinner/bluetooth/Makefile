@@ -39,7 +39,7 @@ define Package/bluetooth/Default
   SECTION:=utils
   CATEGORY:=Allwinner
   TITLE:=Bluetooth APP(bsa 01062)
-  DEPENDS:=+libpthread +librt +alsa-lib +libspeex +libuci
+  DEPENDS:=+libpthread +librt +alsa-lib +libspeex-lite +libuci
 endef
 
 define Package/bluetooth
@@ -51,7 +51,7 @@ endef
 define Package/bluetooth-demo
   $(call Package/bluetooth/Default)
   TITLE:=BT app demo
-  DEPENDS:=bluetooth +bluetooth
+  DEPENDS:=bluetooth +libstdcpp
 endef
 
 define Package/bluetooth/description
@@ -75,7 +75,6 @@ define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/build \
 		-f Makefile \
 		ENABLE_ALSA=TRUE \
-		CPU=arm \
 		CC="$(TARGET_CC)" \
 		CXX="$(TARGET_CXX)" \
 		CFLAGS="$(TARGET_CFLAGS)"\
@@ -96,11 +95,8 @@ define Build/Compile
 	$(STRIP) $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/bt_test/bt_test
 	$(STRIP) $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/bt_test/bt_connect_disconnect_test
 
-	#strip bsa_server
-	$(STRIP) $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/server/build/arm/bsa_server
-
 	#copy bsa_server and apps
-	$(CP) -r $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/server/build/arm/bsa_server $(PKG_BUILD_DIR)/
+	$(CP) -r $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/build/bsa_server $(PKG_BUILD_DIR)/
 	$(CP) -r $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/bt_test/bt_test $(PKG_BUILD_DIR)/
 	$(CP) -r $(PKG_BUILD_DIR)/3rdparty/embedded/bsa_examples/linux/libbtapp/bt_test/bt_connect_disconnect_test $(PKG_BUILD_DIR)/
 

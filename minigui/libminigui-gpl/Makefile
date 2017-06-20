@@ -24,7 +24,7 @@ include $(BUILD_DIR)/package.mk
 define Package/libminigui-gpl
   SECTION:=gui
   CATEGORY:=Minigui
-  DEPENDS:= +zlib +libpthread +libpng +libjpeg +libfreetype +minigui-res-be
+  DEPENDS:= +zlib +libpthread +libpng +libjpeg +libfreetype +minigui-res-be +kmod-sunxi-disp
   TITLE:=libminigui-gpl
   MAINTAINER:=tracewong <tracewong@outlook.com>
   URL:=http://www.minigui.org/
@@ -34,11 +34,27 @@ define Package/libminigui-gpl/description
   The ligminigui library of GUI Core
 endef
 
+define Package/libminigui-gpl/config
+choice
+prompt "Preferred Minigui Run Mode"
+	default MINIGUI_THS
+	help
+	Select the preferred minigui running mode.
+config MINIGUI_THS
+	bool "ths"
+config MINIGUI_PROC
+	bool "proc"
+endchoice
+endef
+
 CONFIGURE_ARGS += \
 	--disable-pcxvfb \
-	--enable-procs \
 	--disable-splash \
 	--disable-screensaver
+
+ifeq ($(CONFIG_MINIGUI_PROC),y)
+CONFIGURE_ARGS += --enable-procs
+endif
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include/
@@ -63,12 +79,16 @@ endef
 define Package/libminigui-gpl/install
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(INSTALL_DIR) $(1)/usr/local/etc
+	$(INSTALL_DIR) $(1)/etc
 	$(CP) \
 		$(PKG_INSTALL_DIR)/usr/lib/*.so* \
 		$(1)/usr/lib/
-	#$(CP) \
-	#	$(PKG_INSTALL_DIR)/usr/etc/* \
-	#	$(1)/usr/local/etc/
+	$(CP) \
+		./MiniGUI.cfg \
+		$(1)/usr/local/etc/
+	$(CP) \
+		./sunxi-keyboard.kl \
+		$(1)/etc/
 endef
 
 $(eval $(call BuildPackage,libminigui-gpl))

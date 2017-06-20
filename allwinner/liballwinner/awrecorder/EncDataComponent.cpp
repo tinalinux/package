@@ -186,7 +186,7 @@ static void* AudioEncDataThread(void* arg)
 			else
 				packet.duration = 23;
 
-			logd("audio packet length(%d)", packet.length);
+			//logd("audio packet length(%d)", packet.length);
             if (p->mEncDataCallBackOps && p->mEncDataCallBackOps->onAudioDataEnc)
                 p->mEncDataCallBackOps->onAudioDataEnc(p->mApp,&packet);
 

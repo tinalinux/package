@@ -1,0 +1,18 @@
+if PACKAGE_tinatest
+
+config TINATEST_CUSTOM
+    bool "Customize TinaTest options"
+    default n
+        help
+          Enabling this allows full customization of tinatest settings.
+          Note that these options will only customize your tinatest.json.
+          You can write tinatest.json by yourself.
+          See the documentation ./doc/README.txt & ./doc/CONFIG.txt
+
+          Unless you know what you are doing, you should leave this as 'n'
+
+if TINATEST_CUSTOM
+    source "config/Config.in"
+endif
+
+endif

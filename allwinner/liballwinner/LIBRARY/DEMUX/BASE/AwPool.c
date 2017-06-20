@@ -184,13 +184,11 @@ AwPoolT *PoolNodeCreate(char *file, int line)
         return NULL;
     }
 
-#if ((CONFIG_CC != OPTION_CC_LINUX_MUSLGNUEABI) && (CONFIG_CC != OPTION_CC_LINUX_MUSLGNUEABI310))
-    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK_NP) != 0)
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK) != 0)
     {
         CDX_LOGE("pthread_mutexattr_settype failure...");
         return NULL;
     }
-#endif
 
     pthread_mutex_init(&pool->mutex, &attr);
 

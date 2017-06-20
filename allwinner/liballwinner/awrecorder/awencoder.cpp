@@ -157,7 +157,7 @@ int AwEncoderGetExtradata(AwEncoder* v, unsigned char** buf, unsigned int* lengt
     else
     {
         logd("GetExtradata fail!");
-        return 0;
+        return -1;
     }
 }
 

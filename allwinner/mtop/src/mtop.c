@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 {
 	int i;
 	unsigned long value, bandwidth;
-    char hardware[PROPERTY_VALUE_MAX];
+    char hardware[PROPERTY_VALUE_MAX]={0};
 
 #if PLATFORM == Linux
     get_hardware_name(hardware);

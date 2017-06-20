@@ -333,6 +333,43 @@ int app_mgr_get_bt_config(void)
     return 0;
 
 }
+/*******************************************************************************
+ **
+ ** Function         app_mgr_get_bd_addr
+ **
+ ** Description      This function is used to get the bluetooth address
+ **
+ ** Parameters
+ **
+ ** Returns          0--successed, 1--failed
+ **
+ *******************************************************************************/
+int app_mgr_get_bd_addr(BD_ADDR bd_addr)
+{
+    int status;
+    int i;
+    tBSA_DM_GET_CONFIG bt_config;
+    /*
+     * Get bluetooth config
+     */
+    status = BSA_DmGetConfigInit(&bt_config);
+    status = BSA_DmGetConfig(&bt_config);
+    if (status != BSA_SUCCESS)
+    {
+        APP_ERROR1("BSA_DmGetConfig failed:%d", status);
+        return(-1);
+    }
+    APP_DEBUG1("Bdaddr %02x:%02x:%02x:%02x:%02x:%02x",
+             bt_config.bd_addr[0], bt_config.bd_addr[1],
+             bt_config.bd_addr[2], bt_config.bd_addr[3],
+             bt_config.bd_addr[4], bt_config.bd_addr[5]);
+
+    for(i = 0; i < 6; i++)
+	bd_addr[i] = bt_config.bd_addr[i];
+
+    return 0;
+
+}
 
 /*******************************************************************************
  **
@@ -1254,6 +1291,52 @@ void app_mgr_set_non_connectable(void)
 
 /*******************************************************************************
  **
+ ** Function         app_mgr_config_bd_name
+ **
+ ** Description      config the device bt name
+ **
+ ** Parameters
+ **
+ ** Returns          void
+ **
+ *******************************************************************************/
+ void app_mgr_config_bd_name(const char *bd_name)
+{
+    if(!bd_name || !bd_name[0])
+    {
+        APP_ERROR0("set bt NULL name failed");
+        return;
+    }
+
+    strncpy((char *)app_xml_config.name, (char *)bd_name, BD_NAME_LEN);
+    app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
+}
+
+void app_mgr_config_connectable(int enable)
+{
+    if(enable != 0){
+        app_xml_config.connectable = 1;
+    }else{
+        app_xml_config.connectable = 0;
+    }
+
+    return ;
+}
+
+
+void app_mgr_config_discoverable(int enable)
+{
+    if(enable != 0){
+        app_xml_config.discoverable = 1;
+    }else{
+        app_xml_config.discoverable = 0;
+    }
+
+    return ;
+}
+
+/*******************************************************************************
+ **
  ** Function         app_mgr_di_discovery
  **
  ** Description      Perform a device Id discovery
@@ -1322,6 +1405,27 @@ int app_mgr_di_discovery(void)
     return -1;
 }
 
+int app_mgr_config_init(void)
+{
+    int                 status;
+
+    status = app_mgr_read_config();
+    if (status < 0)
+    {
+        strncpy((char *)app_xml_config.name, APP_DEFAULT_BT_NAME, sizeof(app_xml_config.name));
+        app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
+    }
+
+    /* prevention config file damanged */
+    {
+        app_xml_config.enable = TRUE;
+        app_xml_config.discoverable = TRUE;
+        app_xml_config.connectable = TRUE;
+    }
+
+    return 0;
+}
+
 /*******************************************************************************
  **
  ** Function         app_mgr_config
@@ -1338,6 +1442,7 @@ int app_mgr_config(void)
     int                 status;
     int                 index;
     BD_ADDR             local_bd_addr = APP_DEFAULT_BD_ADDR;
+    BD_ADDR             chip_bd_addr = {0};
     DEV_CLASS           local_class_of_device = APP_DEFAULT_CLASS_OF_DEVICE;
     tBSA_SEC_ADD_DEV    bsa_add_dev_param;
     tBSA_SEC_ADD_SI_DEV bsa_add_si_dev_param;
@@ -1349,34 +1454,25 @@ int app_mgr_config(void)
      * for application boot and when Bluetooth is restarted
      */
 
-    /* Example of function to read the XML file which contains the
-     * Local Bluetooth configuration
-     * */
-    status = app_mgr_read_config();
-    if (status < 0)
-    {
-        strncpy((char *)app_xml_config.name, APP_DEFAULT_BT_NAME, sizeof(app_xml_config.name));
-        app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
-    }
-
     /* prevention config file damanged */
     {
         APP_ERROR0("Creating default XML config file");
-        app_xml_config.enable = TRUE;
-        app_xml_config.discoverable = TRUE;
-        app_xml_config.connectable = TRUE;
 
-#ifdef CUSTOM_MAC_ENABLE
+#if defined(CUSTOM_MAC_ENABLE) && !defined(RANDOM_MAC_ENABLE)
+
+    /*==========================CUSTOM_MAC_ENABLE===================*/
         /* bt config file exist */
         if(bta_conf_path[0] != '\0')
         {
             bta_load_addr((const char *)bta_conf_path);
             if((local_device_set_addr[0] != 0) || (local_device_set_addr[1] != 0)
                 || (local_device_set_addr[2] != 0) || (local_device_set_addr[3] != 0)
-                || (local_device_set_addr[3] |= 0) || (local_device_set_addr[4] != 0)
+                || (local_device_set_addr[3] != 0) || (local_device_set_addr[4] != 0)
                 || (local_device_set_addr[5] != 0)){
                 bdcpy(app_xml_config.bd_addr, local_device_set_addr);
-            } else {
+            }
+	    else
+	    {
                 bdcpy(app_xml_config.bd_addr, local_bd_addr);
                 /* let's use a random number for the last two bytes of the BdAddr */
                 gettimeofday(&tv, NULL);
@@ -1386,7 +1482,6 @@ int app_mgr_config(void)
             }
         }
         else
-#endif
         {
             bdcpy(app_xml_config.bd_addr, local_bd_addr);
             /* let's use a random number for the last two bytes of the BdAddr */
@@ -1395,6 +1490,39 @@ int app_mgr_config(void)
             app_xml_config.bd_addr[4] = rand_r(&rand_seed);
             app_xml_config.bd_addr[5] = rand_r(&rand_seed);
         }
+
+#elif defined(RANDOM_MAC_ENABLE) && !defined(CUSTOM_MAC_ENABLE)
+
+     /*==========RANDOM_MAC_ENABLE====================*/
+        bdcpy(app_xml_config.bd_addr, local_bd_addr);
+        /* let's use a random number for the last two bytes of the BdAddr */
+        gettimeofday(&tv, NULL);
+        rand_seed = tv.tv_sec * tv.tv_usec * getpid();
+        app_xml_config.bd_addr[4] = rand_r(&rand_seed);
+        app_xml_config.bd_addr[5] = rand_r(&rand_seed);
+
+#else
+
+      /* Default action: to set bd_addr from chip setup*/
+        status = app_mgr_get_bd_addr(chip_bd_addr);
+	if(status < 0)
+	{
+            APP_ERROR0("Unable to get the bd_addr from chip!");
+	}
+        if((chip_bd_addr[0] != 0) || (chip_bd_addr[1] != 0)
+           || (chip_bd_addr[2] != 0) || (chip_bd_addr[3] != 0)
+           || (chip_bd_addr[3] != 0) || (chip_bd_addr[4] != 0)
+           || (chip_bd_addr[5] != 0))
+	{
+	    bdcpy(app_xml_config.bd_addr, chip_bd_addr);
+	}
+	else
+	{
+            APP_ERROR0("There is something wrong in the bd_addr from chip!");
+	    return status;
+	}
+
+#endif
 
         memcpy(app_xml_config.class_of_device, local_class_of_device, sizeof(DEV_CLASS));
         strncpy(app_xml_config.root_path, APP_DEFAULT_ROOT_PATH, sizeof(app_xml_config.root_path));

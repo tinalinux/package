@@ -68,14 +68,26 @@ static cdx_int32 tsWriteBufferStream(ByteIOContext *pCdxStreamT, char *buf, int 
 #endif
 }
 
-void TsSectionWritePacket(MpegTSSection *s, cdx_uint8 *packet)
+int TsSectionWritePacket(MpegTSSection *s, cdx_uint8 *packet)
 {
     TsMuxContext *ctx = s->opaque;
+    cdx_int32 ret;
+
+    if (ctx->is_sdcard_disappear)
+    {
+        return -1;
+    }
 #if FS_WRITER
-    tsWriteBufferStream(ctx->fs_writer_info.mp_fs_writer, (char*)packet, TS_PACKET_SIZE);
+    ret = tsWriteBufferStream(ctx->fs_writer_info.mp_fs_writer, (char*)packet, TS_PACKET_SIZE);
 #else
-    tsWriteBufferStream(ctx->stream_writer, (char*)packet, TS_PACKET_SIZE);
+    ret = tsWriteBufferStream(ctx->stream_writer, (char*)packet, TS_PACKET_SIZE);
 #endif
+    if (ret < 0)
+    {
+        ctx->is_sdcard_disappear = 1;
+        loge("sdcard may be disappeared!");
+    }
+    return ret;
 }
 
 unsigned long generateCRC32(unsigned char * DataBuf,unsigned long  len)
@@ -135,7 +147,7 @@ unsigned long generateCRC32(unsigned char * DataBuf,unsigned long  len)
 }
 
 
-static void tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
+static cdx_int32 tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
 {
     TsMuxContext* context = (TsMuxContext*)s->opaque;
     TsWriter *ts = ((TsMuxContext*)s->opaque)->priv_data;
@@ -143,8 +155,11 @@ static void tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
     unsigned char packet[TS_PACKET_SIZE];
     const unsigned char *buf_ptr;
     unsigned char *q;
-    int first, b, len1, left;
 
+    if (context->is_sdcard_disappear)
+    {
+        return -1;
+    }
     crc = generateCRC32(buf, len -4);
 
     //crc = tsBsWap32(tsAvCrc(av_crc_get_table(AV_CRC_32_IEEE), -1, buf, len - 4));
@@ -157,6 +172,7 @@ static void tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
     buf_ptr = buf;
     while (len > 0)
     {
+        int first, b, len1, left;
         first = (buf == buf_ptr);
         q = packet;
         *q++ = 0x47;
@@ -203,13 +219,20 @@ static void tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
         {
             if(ts->cache_size >= 1024*TS_PACKET_SIZE)
             {
+                cdx_int32 ret;
 #if FS_WRITER
-                tsWriteBufferStream(context->fs_writer_info.mp_fs_writer,(char*)ts->ts_read_ptr,
+                ret = tsWriteBufferStream(context->fs_writer_info.mp_fs_writer,(char*)ts->ts_read_ptr,
                                     TS_PACKET_SIZE * 128);
 #else
-                tsWriteBufferStream(context->stream_writer,(char*)ts->ts_read_ptr,
+                ret = tsWriteBufferStream(context->stream_writer,(char*)ts->ts_read_ptr,
                                     TS_PACKET_SIZE * 128);
 #endif
+                if (ret < 0)
+                {
+                    context->is_sdcard_disappear = 1;
+                    loge("(f:%s, l:%d) sdcard may be disappeared!", __FUNCTION__, __LINE__);
+                    return ret;
+                }
                 ts->ts_read_ptr += TS_PACKET_SIZE*128;
                 ts->cache_size = ts->cache_size - TS_PACKET_SIZE*128;
                 ts->cache_page_num ++;
@@ -223,6 +246,7 @@ static void tsWriteSection(MpegTSSection *s, cdx_uint8 *buf, int len)
         buf_ptr += len1;
         len -= len1;
     }
+    return 0;
 }
 
 static void tsPut16Bits(cdx_uint8 **q_ptr, int val)
@@ -244,7 +268,9 @@ static int tsWriteSection1(MpegTSSection *s, int tid, int id,
     tot_len = 3 + 5 + len + 4;
     /* check if not too big */
     if (tot_len > 1024)
+    {
         return -1;
+    }
 
     q = section;
     *q++ = tid;//write table_id
@@ -255,7 +281,11 @@ static int tsWriteSection1(MpegTSSection *s, int tid, int id,
     *q++ = last_sec_num;
     memcpy(q, buf, len);
 
-    tsWriteSection(s, section, tot_len);
+    if (tsWriteSection(s, section, tot_len) < 0)
+    {
+        loge("(f:%s, l:%d) tsWriteSection() failed", __FUNCTION__, __LINE__);
+        return -1;
+    }
     return 0;
 }
 
@@ -289,28 +319,33 @@ static cdx_int32 tsAvRescaleRnd(cdx_int64 a, cdx_int64 b, cdx_int64 c)
     return (a * b + c-1)/c;
 }
 
-static void tsWritePat(TsMuxContext *s)
+static cdx_int32 tsWritePat(TsMuxContext *s)
 {
     TsWriter *ts = s->priv_data;
-    MpegTSService *service;
     cdx_uint8 data[1012], *q;
     int i;
-
+    cdx_int32 ret;
     q = data;
     for(i = 0; i < ts->nb_services; i++)
     {
-        service = ts->services[i];
+        MpegTSService *service = ts->services[i];
         tsPut16Bits(&q, service->sid);
         tsPut16Bits(&q, 0xe000 | service->pmt.pid);
     }
-    tsWriteSection1(&ts->pat, PAT_TID, ts->tsid, 1, 0, 0, data, q - data);
+    ret = tsWriteSection1(&ts->pat, PAT_TID, ts->tsid, 1, 0, 0, data, q - data);
+    if (ret < 0)
+    {
+        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+    }
+    return ret;
 }
 
-static void tsWritePmt(TsMuxContext *s, MpegTSService *service)
+static cdx_int32 tsWritePmt(TsMuxContext *s, MpegTSService *service)
 {
     // TsWriter *ts = s->priv_data;
-    cdx_uint8 data[1012], *q, *desc_length_ptr, *program_info_length_ptr;
+    cdx_uint8 data[1012], *q,  *program_info_length_ptr;
     int val, stream_type=-1, i;
+    cdx_int32 ret;
 
     q = data;
     tsPut16Bits(&q, 0xe000 | service->pcr_pid);
@@ -327,6 +362,7 @@ static void tsWritePmt(TsMuxContext *s, MpegTSService *service)
     {
         AVStream *st = s->streams[i];
         MpegTSWriteStream *ts_st = st->priv_data;
+        cdx_uint8 *desc_length_ptr;
         switch(st->codec.codec_id)
         {
             case MUX_CODEC_ID_H264:
@@ -360,14 +396,24 @@ static void tsWritePmt(TsMuxContext *s, MpegTSService *service)
         desc_length_ptr[0] = val >> 8;
         desc_length_ptr[1] = val;
     }
-    tsWriteSection1(&service->pmt, PMT_TID, service->sid, 1, 0, 0,
+    ret = tsWriteSection1(&service->pmt, PMT_TID, service->sid, 1, 0, 0,
                           data, q - data);
+    if (ret < 0)
+    {
+        loge("(f:%s, l:%d) tsWriteSection1() failed", __FUNCTION__, __LINE__);
+    }
+    return ret;
 }
 
-static void tsWritePcrTable(TsMuxContext *s, cdx_int64 pts)
+static cdx_int32 tsWritePcrTable(TsMuxContext *s, cdx_int64 pts)
 {
     //TsMuxContext* context = (TsMuxContext*)s->opaque;
     TsWriter *ts = s->priv_data;
+
+    if (s->is_sdcard_disappear)
+    {
+        return -1;
+    }
 
     unsigned char buffer[188];
     long long pcr = pts; //fix it later, pcr 27MHZ
@@ -408,12 +454,20 @@ static void tsWritePcrTable(TsMuxContext *s, cdx_int64 pts)
     {
         if(ts->cache_size >= 1024*TS_PACKET_SIZE)
         {
+            cdx_int32 ret;
 #if FS_WRITER
-            tsWriteBufferStream(s->fs_writer_info.mp_fs_writer, (char*)ts->ts_read_ptr,
+            ret = tsWriteBufferStream(s->fs_writer_info.mp_fs_writer, (char*)ts->ts_read_ptr,
                                 TS_PACKET_SIZE * 128);
 #else
-            tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr, TS_PACKET_SIZE*128);
+            ret = tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr,
+                                TS_PACKET_SIZE * 128);
 #endif
+            if (ret < 0)
+            {
+                s->is_sdcard_disappear = 1;
+                loge("(f:%s, l:%d) sdcard may be disappeared!", __FUNCTION__, __LINE__);
+                return ret;
+            }
             ts->ts_read_ptr += TS_PACKET_SIZE*128;
             ts->cache_size = ts->cache_size - TS_PACKET_SIZE*128;
             ts->cache_page_num ++;
@@ -423,9 +477,10 @@ static void tsWritePcrTable(TsMuxContext *s, cdx_int64 pts)
             }
         }
     }
+    return 0;
 }
 
-static void tsRetransmitSiInfo(TsMuxContext *s, cdx_int64 pts, int idx)
+static cdx_int32 tsRetransmitSiInfo(TsMuxContext *s, cdx_int64 pts, int idx)
 {
     TsWriter *ts = s->priv_data;
     int i;
@@ -437,28 +492,54 @@ static void tsRetransmitSiInfo(TsMuxContext *s, cdx_int64 pts, int idx)
             s->pat_pmt_counter = 0;
             s->pat_pmt_flag = 0;
 
-            tsWritePat(s);
+            if (tsWritePat(s) < 0)
+            {
+                loge("(f:%s, l:%d) tsWritePat() failed", __FUNCTION__, __LINE__);
+                return -1;
+            }
+
             for(i = 0; i < ts->nb_services; i++)
             {
-                tsWritePmt(s, ts->services[i]);
+                if (tsWritePmt(s, ts->services[i]) < 0)
+                {
+                    loge("(f:%s, l:%d) tsWritePmt() failed", __FUNCTION__, __LINE__);
+                    return -1;
+                }
             }
         }
         if (idx == CODEC_TYPE_VIDEO)
         {
-            tsWritePcrTable(s, pts);
+            if (tsWritePcrTable(s, pts) < 0)
+            {
+                loge("(f:%s, l:%d) tsWritePcrTable() failed", __FUNCTION__, __LINE__);
+                return -1;
+            }
         }
     }
     else if (ts->pat_packet_count == ts->pat_packet_period)
     {
         ts->pat_packet_count = 0;
 
-        tsWritePat(s);
+        if (tsWritePat(s) < 0)
+        {
+            loge("(f:%s, l:%d) tsWritePat() failed", __FUNCTION__, __LINE__);
+            return -1;
+        }
         for(i = 0; i < ts->nb_services; i++)
         {
-            tsWritePmt(s, ts->services[i]);
+            if (tsWritePmt(s, ts->services[i]) < 0)
+            {
+                loge("(f:%s, l:%d) tsWritePat() failed", __FUNCTION__, __LINE__);
+                return -1;
+            }
         }
-        tsWritePcrTable(s, pts);
+        if (tsWritePcrTable(s, pts) < 0)
+        {
+            loge("(f:%s, l:%d) tsWritePcrTable() failed", __FUNCTION__, __LINE__);
+            return -1;
+        }
     }
+    return 0;
 }
 
 static void tsWritePts(cdx_uint8 *q, int fourbits, cdx_int64 pts)
@@ -481,7 +562,7 @@ static void tsWritePts(cdx_uint8 *q, int fourbits, cdx_int64 pts)
  * NOTE: 'payload' contains a complete PES payload.
  */
 
-static void tsWritePes(TsMuxContext *s, AVStream *st,
+static cdx_int32 tsWritePes(TsMuxContext *s, AVStream *st,
                              const cdx_uint8 *payload, int payload_size,
                              cdx_int64 pts, cdx_int64 dts,cdx_int32 idx)
 {
@@ -489,19 +570,29 @@ static void tsWritePes(TsMuxContext *s, AVStream *st,
     TsWriter *ts = s->priv_data;
     cdx_uint8 buf[TS_PACKET_SIZE];
     cdx_uint8 *q;
-    int val, is_start, len, header_len, write_pcr, private_code, flags;
-    int afc_len, stuffing_len;
+    int is_start, len, header_len, private_code, flags, afc_len;
     cdx_int64 pcr = -1; /* avoid warning */
-    cdx_int64 delay = tsAvRescaleRnd(s->max_delay, 90000, AV_TIME_BASE);
+    // cdx_int64 delay = tsAvRescaleRnd(s->max_delay, 90000, AV_TIME_BASE);
     int stuffingbytes;
 
+    if (s->is_sdcard_disappear)
+    {
+        return -1;
+    }
+
     is_start = 1;
-    tsRetransmitSiInfo(s, pts, idx);
+    if (tsRetransmitSiInfo(s, pts, idx) < 0)
+    {
+        loge("(f:%s, l:%d) tsRetransmitSiInfo() failed", __FUNCTION__, __LINE__);
+        return -1;
+    }
 
     ts->pat_packet_count++;
 
     while (payload_size > 0)
     {
+        int val, write_pcr, stuffing_len;
+
         write_pcr = 0;
 
         /* prepare packet header */
@@ -652,13 +743,20 @@ static void tsWritePes(TsMuxContext *s, AVStream *st,
         {
             if(ts->cache_size >= 1024*TS_PACKET_SIZE)
             {
+                cdx_int32 ret;
 #if FS_WRITER
-                tsWriteBufferStream(s->fs_writer_info.mp_fs_writer,
+                ret = tsWriteBufferStream(s->fs_writer_info.mp_fs_writer,
                                     (char*)ts->ts_read_ptr, TS_PACKET_SIZE * 128);
 #else
-                tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr,
+                ret = tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr,
                                     TS_PACKET_SIZE * 128);
 #endif
+                if (ret < 0)
+                {
+                    s->is_sdcard_disappear = 1;
+                    loge("(f:%s, l:%d) sdcard may be disappear!", __FUNCTION__, __LINE__);
+                    return ret;
+                }
                 ts->ts_read_ptr += TS_PACKET_SIZE * 128;
                 ts->cache_size = ts->cache_size - TS_PACKET_SIZE * 128;
                 ts->cache_page_num ++;
@@ -669,16 +767,14 @@ static void tsWritePes(TsMuxContext *s, AVStream *st,
             }
         }
     }
+    return 0;
 }
 
 cdx_int32 TsWritePacket(TsMuxContext *s, CdxMuxerPacketT *pkt)
 {
     int size = 0;
     cdx_uint8 *buf_tmp = s->pes_buffer;
-    unsigned int ret;
     AVStream *st = s->streams[pkt->streamIndex];
-    TsWriter *ts = s->priv_data;
-    cdx_int8 *pkt_buf = pkt->buf;
 
     if(st->codec.codec_id == MUX_CODEC_ID_H264)
     {
@@ -831,7 +927,10 @@ cdx_int32 TsWritePacket(TsMuxContext *s, CdxMuxerPacketT *pkt)
         return 0;
     }
 
-    tsWritePes(s, st, s->pes_buffer, size, pkt->pts, 0, pkt->streamIndex);
+    if (tsWritePes(s, st, s->pes_buffer, size, pkt->pts, 0, pkt->streamIndex) < 0)
+    {
+        return -1;
+    }
     return 0;
 }
 
@@ -848,15 +947,23 @@ cdx_int32 TsWriteTrailer(TsMuxContext *s)
     /* flush current packets */
     for(i = ts->cache_page_num*128;i<ts->cache_size_total/TS_PACKET_SIZE;i++)
     {
+        cdx_int32 ret;
         if(ts->ts_read_ptr > ts->ts_cache_end)
         {
             ts->ts_read_ptr = ts->ts_cache_start;
         }
 #if FS_WRITER
-        tsWriteBufferStream(s->fs_writer_info.mp_fs_writer, (char*)ts->ts_read_ptr, TS_PACKET_SIZE);
+        ret = tsWriteBufferStream(s->fs_writer_info.mp_fs_writer, (char*)ts->ts_read_ptr,
+            TS_PACKET_SIZE);
 #else
-        tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr, TS_PACKET_SIZE);
+        ret = tsWriteBufferStream(s->stream_writer, (char*)ts->ts_read_ptr, TS_PACKET_SIZE);
 #endif
+        if (ret < 0)
+        {
+            s->is_sdcard_disappear = 1;
+            loge("(f:%s, l:%d) tsWriteBufferStream() failed", __FUNCTION__, __LINE__);
+            return ret;
+        }
         ts->ts_read_ptr += TS_PACKET_SIZE;
     }
 

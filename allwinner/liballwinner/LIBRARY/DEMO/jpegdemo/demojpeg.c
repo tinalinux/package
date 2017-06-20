@@ -523,7 +523,7 @@ int main(int argc, char** argv)
 		return -1;
 	}
 	CdcMemOpen(memops);
-
+	AddVDPlugin();
 
     if (argc != 2)
     {

@@ -67,7 +67,7 @@ local function playback_states_stop()
 end
 
 local function turn_off()
-	lasa.timer.at(3, function()
+	lasa.timer.at(6, function()
 		local js = {}
 		js.msgtype = 'request'
 		js.method = "turnoff"
@@ -94,7 +94,20 @@ local function turn_on()
 end
 
 local function get_music_list()
-	lasa.timer.at(1, function()
+	lasa.timer.at(3, function()
+		local js = {}
+		js.msgtype = 'request'
+		js.method = "getmusiclist"
+		js.msgid = lasa.uuid()
+		local msg = json.encode(js)
+		msg = 'A\r\n'..#msg..'\r\n'..msg
+		sock:send(msg)
+		print("======================== getmusiclist", msg)
+	end)
+end
+
+local function re_get_music_list()
+	lasa.timer.at(6, function()
 		local js = {}
 		js.msgtype = 'request'
 		js.method = "getmusiclist"
@@ -109,8 +122,9 @@ end
 --keep_alive()
 
 --turn_off()
-get_music_list()
---turn_on()
+turn_on()
+--get_music_list()
+--re_get_music_list()
 --playback_states_playing()
 --playback_states_paused()
 --playback_states_stop()
@@ -121,36 +135,36 @@ while true do
 		print('client receive error: ', e)
 		break
 	end
-
+	
 --	print('=====================>', d)
-
+	
 	local d, e, p = sock:receive('*l')
 	if e then
 		print('client receive error: ', e)
 		break
 	end
-
+	
 --	print('=====================>', d)
-
+	
 	local num = tonumber(d)
 	local d, e, p = sock:receive(num)
 	if e then
 		print('client receive error: ', e)
 		break
 	end
-
+	
 --	print('=====================>', d)
-
+	
 	local js = json.decode(d)
 	if not js then print('client receive not json') break end
-
+	
 	if js.msgtype == 'request' then
 		print('=================playback client===========================')
 		print("                 "..js.method)
 --		print(d)
 		print('===========================================================')
-
-
+	
+	
 		local msg = {}
 		msg.msgtype = 'response'
 		msg.msgid = js.msgid
@@ -165,7 +179,8 @@ while true do
 	elseif js.msgtype == 'response' then
 		print(d)
 	end
-
+	
 end
 
 sock:close()
+

@@ -24,8 +24,7 @@ SUB_LIB += \
 	-lbsa \
 #for tinaplayer
 SUB_LIB += -ltinaplayer -lxplayer -lcdc_vdecoder -lcdc_adecoder -lcdc_sdecoder -lcdc_base -lcdc_ve -lcdc_memory \
-		   -lcdx_parser  -lplayer -lcdx_stream -lcdx_base  -lpostprocess \
-			-law_plugin  -lpthread -ldl -lstdc++ -lrt -lm -lc -lz -lasound
+		   -lcdx_parser  -lplayer -lcdx_stream -lcdx_base -law_plugin -lpthread -ldl -lstdc++ -lrt -lm -lc -lz -lasound
 SUB_LIB += -lpowermanager -ldl
 
 .PHONY:all clean

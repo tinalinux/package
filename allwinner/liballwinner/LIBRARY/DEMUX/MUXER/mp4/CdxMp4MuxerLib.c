@@ -30,41 +30,57 @@ static cdx_int32 writeBufferStream(ByteIOContext *s, cdx_int8 *buf, cdx_int32 si
 #endif
 }
 
-static void writeByteStream(ByteIOContext *s, cdx_int32 b)
+static cdx_int32 writeByteStream(ByteIOContext *s, cdx_int32 b)
 {
-    writeBufferStream(s, (cdx_int8*)(&b), 1);
+    return writeBufferStream(s, (cdx_int8*)(&b), 1);
 }
 
-static void writeTagStream(ByteIOContext *s, const char *tag)
+static cdx_int32 writeTagStream(ByteIOContext *s, const char *tag)
 {
+    cdx_int32 ret;
     while (*tag)
     {
-        writeByteStream(s, *tag++);
+        ret = writeByteStream(s, *tag++);
+        if (ret < 0)
+        {
+            break;
+        }
     }
+    return ret;
 }
 
-static void writeBe16Stream(ByteIOContext *s, cdx_uint32 val)
+static cdx_int32 writeBe16Stream(ByteIOContext *s, cdx_uint32 val)
 {
-    writeByteStream(s, val >> 8);
-    writeByteStream(s, val);
+    cdx_int32 ret;
+    if ((ret = writeByteStream(s, val >> 8)) < 0)
+    {
+        return ret;
+    }
+    ret = writeByteStream(s, val);
+    return ret;
 }
 
-static void writeBe24Stream(ByteIOContext *s, cdx_uint32 val)
+static cdx_int32 writeBe24Stream(ByteIOContext *s, cdx_uint32 val)
 {
-    writeBe16Stream(s, val >> 8);
-    writeByteStream(s, val);
+    cdx_int32 ret;
+    if ((ret = writeBe16Stream(s, val >> 8)) < 0)
+    {
+        return ret;
+    }
+    ret = writeByteStream(s, val);
+    return ret;
 }
 
-static void writeBe32Stream(ByteIOContext *s, cdx_uint32 val)
+static cdx_int32 writeBe32Stream(ByteIOContext *s, cdx_uint32 val)
 {
     val= ((val<<8)&0xFF00FF00) | ((val>>8)&0x00FF00FF);
     val= (val>>16) | (val<<16);
-    writeBufferStream(s, (cdx_int8*)&val, 4);
+    return writeBufferStream(s, (cdx_int8*)&val, 4);
 }
 
-static void writeLe32Stream(ByteIOContext *s, cdx_uint32 val)
+static cdx_int32 writeLe32Stream(ByteIOContext *s, cdx_uint32 val)
 {
-    writeBufferStream(s, (cdx_int8*)&val, 4);
+    return writeBufferStream(s, (cdx_int8*)&val, 4);
 }
 
 /***************************** Write Data to Stream File *****************************/
@@ -140,12 +156,13 @@ int parseAvcNalus(cdx_uint8 *buf_in, cdx_uint8 **buf, int *size)
     cdx_uint8 *p = buf_in,*ptr_t;
     cdx_uint8 *end = p + *size;
     cdx_uint8 *nal_start, *nal_end;
-    unsigned int nal_size,nal_size_b;
+    unsigned int nal_size_b;
 
     ptr_t = *buf = malloc(*size + 256);
     nal_start = findAvcStartcode(p, end);
     while (nal_start < end)
     {
+        unsigned int nal_size;
         while (!*(nal_start++));
         nal_end = findAvcStartcode(nal_start, end);
         nal_size = nal_end - nal_start;
@@ -171,7 +188,6 @@ static cdx_uint32 avccGetSpsPpsSize(cdx_uint8 *data, cdx_int32 len)
         {
             cdx_uint8 *buf=NULL, *end, *start;
             cdx_uint32 sps_size=0, pps_size=0;
-            cdx_uint8 *sps=0, *pps=0;
 
             int ret = parseAvcNalus(data, &buf, &len);
             if (ret < 0)
@@ -193,12 +209,10 @@ static cdx_uint32 avccGetSpsPpsSize(cdx_uint8 *data, cdx_int32 len)
                 nal_type = buf[4] & 0x1f;
                 if (nal_type == 7)
                 { /* SPS */
-                    sps = buf + 4;
                     sps_size = size;
                 }
                 else if (nal_type == 8)
                 { /* PPS */
-                    pps = buf + 4;
                     pps_size = size;
                 }
                 buf += size + 4;
@@ -216,8 +230,8 @@ static cdx_uint32 avccGetSpsPpsSize(cdx_uint8 *data, cdx_int32 len)
 
 int avccWriteSpsPps(ByteIOContext *pb, cdx_uint8 *data, int len, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
-    if (len > 6) {
+    if (len > 6)
+    {
         /* check for h264 start code */
         if (MOV_AV_RB32(data) == 0x00000001)
         {
@@ -285,7 +299,6 @@ static cdx_uint32 videoGetAvccTagSize(MOVTrack *track)
 }
 static int videoWriteAvccTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 avcc_tag_size = videoGetAvccTagSize(track);
     writeBe32Stream(pb, avcc_tag_size);   /* size */
     writeTagStream(pb, "avcC");
@@ -324,7 +337,6 @@ static cdx_uint32 videoGetEsdsTagSize(MOVTrack *track)
 
 static cdx_int32 videoWriteEsdsTag(ByteIOContext *pb, MOVTrack *track) // Basic
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 esds_tag_size = videoGetEsdsTagSize(track);
     cdx_int32 dec_spec_info_len = track->vos_len ? calDescrLength(track->vos_len) : 0;
 
@@ -391,7 +403,6 @@ static cdx_uint32 stsdGetVideoTagSize(MOVTrack *track)
 
 static cdx_int32 stsdWriteVideoTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 video_tag_size = stsdGetVideoTagSize(track);
     cdx_int8 compressor_name[32];
 
@@ -457,7 +468,6 @@ static cdx_uint32 stsdGetAudioTagSize(MOVTrack *track)
 
 static cdx_int32 stsdWriteAudioTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 audio_tag_size = stsdGetAudioTagSize(track);
     //offset_t pos = url_ftell(pb);
     cdx_int32 version = 0;
@@ -535,7 +545,6 @@ static cdx_uint32 stblGetStsdTagSize(MOVTrack *track)
 
 static cdx_int32 stblWriteStsdTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 stsd_tag_size = stblGetStsdTagSize(track);
     writeBe32Stream(pb, stsd_tag_size); /* size */
     writeTagStream(pb, "stsd");
@@ -598,7 +607,7 @@ static cdx_int32 stblWriteSttsTag(ByteIOContext *pb, MOVTrack *track)
         writeTagStream(pb, "stts");
         writeBe32Stream(pb, 0); /* version & flags */
         writeBe32Stream(pb, entries); /* entry count */
-        for (i=0; i<entries; i++)
+        for (i = 0; i < entries; i++)
         {
             writeBe32Stream(pb, stts_entries[i].count);
             writeBe32Stream(pb, stts_entries[i].duration);
@@ -615,9 +624,25 @@ static cdx_int32 stblWriteSttsTag(ByteIOContext *pb, MOVTrack *track)
         writeBe32Stream(pb, 0); /* version & flags */
         writeBe32Stream(pb, entries); /* entry count */
 
-        if (track->stts_tiny_pages == 0)
+        if (mov->play_time_length)
         {
-            for (i=0; i<track->stts_total_num; i++)
+            cdx_uint32 remainder_len = track->track_duration % track->stts_total_num;
+            for (i = 0; i < track->stts_total_num - 1; i++)
+            {
+                if (skip_first_frame)
+                {
+                    skip_first_frame = 0;
+                    continue;
+                }
+                writeBe32Stream(pb, 1);//count
+                writeBe32Stream(pb, track->average_duration);
+            }
+            writeBe32Stream(pb, 1);//count
+            writeBe32Stream(pb, track->average_duration + remainder_len);
+        }
+        else if (track->stts_tiny_pages == 0)
+        {
+            for (i = 0; i < track->stts_total_num; i++)
             {
                 if (skip_first_frame)
                 {
@@ -682,7 +707,7 @@ static cdx_uint32 stblGetStssTagSize(MOVTrack *track)
 static cdx_int32 stblWriteStssTag(ByteIOContext *pb, MOVTrack *track)
 {
     MuxMOVContext *mov = track->mov;
-    cdx_int32 i, keyframes,key_index = 1;
+    cdx_int32 i, keyframes;
     cdx_uint32 stss_tag_size = stblGetStssTagSize(track);
     keyframes = track->key_frame_num;
     writeBe32Stream(pb, stss_tag_size); // size
@@ -887,7 +912,6 @@ static cdx_uint32 minfGetVmhdTagSize()
 
 static cdx_int32 minfWriteVmhdTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 vmhd_tag_size = minfGetVmhdTagSize();
     writeBe32Stream(pb, vmhd_tag_size); /* size (always 0x14) */
     writeTagStream(pb, "vmhd");
@@ -904,7 +928,6 @@ static cdx_uint32 minfGetSmhdTagSize()
 
 static cdx_int32 minfWriteSmhdTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 smhd_tag_size = minfGetSmhdTagSize();
     writeBe32Stream(pb, smhd_tag_size); /* size */
     writeTagStream(pb, "smhd");
@@ -921,7 +944,6 @@ static cdx_uint32 dinfGetDrefTagSize()
 
 static cdx_int32 dinfWriteDrefTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 dref_tag_size = dinfGetDrefTagSize();
     writeBe32Stream(pb, dref_tag_size); /* size */
     writeTagStream(pb, "dref");
@@ -943,7 +965,6 @@ static cdx_uint32 minfGetDinfTagSize()
 
 static cdx_int32 minfWriteDinfTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 dinf_tag_size = minfGetDinfTagSize();
     writeBe32Stream(pb, dinf_tag_size); /* size */
     writeTagStream(pb, "dinf");
@@ -968,7 +989,6 @@ static cdx_uint32 minfGetStblTagSize(MOVTrack *track)
 
 static cdx_int32 minfWriteStblTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 stbl_tag_size = minfGetStblTagSize(track);
     //offset_t pos = url_ftell(pb);
     writeBe32Stream(pb, stbl_tag_size); /* size */
@@ -995,7 +1015,6 @@ static cdx_uint32 mdiaGetMdhdTagSize()
 
 static cdx_int32 mdiaWriteMdhdTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 mdhd_tag_size = mdiaGetMdhdTagSize();
     writeBe32Stream(pb, mdhd_tag_size); /* size */
     writeTagStream(pb, "mdhd");
@@ -1005,7 +1024,8 @@ static cdx_int32 mdiaWriteMdhdTag(ByteIOContext *pb, MOVTrack *track)
     writeBe32Stream(pb, track->time); /* creation time */
     writeBe32Stream(pb, track->time); /* modification time */
     writeBe32Stream(pb, track->track_timescale); /* time scale (sample rate for audio) */
-    writeBe32Stream(pb, track->track_duration); /* duration */
+    writeBe32Stream(pb, track->track_duration*track->track_timescale/GLOBAL_TIMESCALE); /* duration */
+	//writeBe32Stream(pb, track->track_duration); /* duration */
     writeBe16Stream(pb, /*track->language*/0); /* language */
     writeBe16Stream(pb, 0); /* reserved (quality) */
 
@@ -1093,7 +1113,6 @@ static cdx_uint32 mdiaGetMinfTagSize(MOVTrack *track)
 
 static cdx_int32 mdiaWriteMinfTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 minf_tag_size = mdiaGetMinfTagSize(track);
     writeBe32Stream(pb, minf_tag_size); /* size */
     writeTagStream(pb, "minf");
@@ -1125,9 +1144,10 @@ static cdx_uint32 trakGetTkhdTagSize()
 
 static cdx_int32 trakWriteTkhdTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
-    cdx_int64 duration = avRescaleRnd(track->track_duration,
-                                      GLOBAL_TIMESCALE, track->track_timescale);
+	cdx_int64 duration = avRescaleRnd(track->track_duration,
+                                      track->track_timescale, track->track_timescale);
+    //cdx_int64 duration = avRescaleRnd(track->track_duration,
+    //                                  GLOBAL_TIMESCALE, track->track_timescale);
     cdx_int32 version = 0;
     cdx_uint32 tkhd_tag_size = trakGetTkhdTagSize();
     writeBe32Stream(pb, tkhd_tag_size); /* size */
@@ -1221,7 +1241,6 @@ static cdx_uint32 trakGetMdiaTagSize(MOVTrack *track)
 }
 static cdx_int32 trakWriteMdiaTag(ByteIOContext *pb, MOVTrack *track)
 {
-    MuxMOVContext *mov = track->mov;
     cdx_uint32 mdia_tag_size = trakGetMdiaTagSize(track);
 
     writeBe32Stream(pb, mdia_tag_size); /* size */
@@ -1411,7 +1430,7 @@ static cdx_int32 moovWriteTrakTag(ByteIOContext *pb, MOVTrack *track)
 static cdx_int32 fileWriteFtypTag(ByteIOContext *pb, Mp4MuxContext *s)
 {
     cdx_int32 minor = 0x200;
-    MuxMOVContext *mov = (MuxMOVContext*)s->priv_data;
+    cdx_int32 ret;
 
     writeBe32Stream(pb, 28); /* size */
     writeTagStream(pb, "ftyp");
@@ -1421,9 +1440,9 @@ static cdx_int32 fileWriteFtypTag(ByteIOContext *pb, Mp4MuxContext *s)
     writeTagStream(pb, "isom");
     writeTagStream(pb, "iso2");
 
-    writeTagStream(pb, "mp41");
+    ret = writeTagStream(pb, "mp41");
 
-    return 0;//updateSize(pb, pos);
+    return ret;//updateSize(pb, pos);
 }
 
 static cdx_int32 fileWriteFreeTag(ByteIOContext *pb, cdx_int32 size)
@@ -1579,6 +1598,21 @@ static cdx_int32 findCodecTag(MOVTrack *track)
     return tag;
 }
 
+static cdx_int32 setPlayTimeLength(MuxMOVContext* mov)
+{
+    int i;
+    for (i = 0; i < MAX_STREAMS_IN_MP4_FILE; i++)
+    {
+        MOVTrack *trk = mov->tracks[i];
+        if (trk == NULL)
+        {
+            continue;
+        }
+        trk->track_duration = mov->play_time_length;
+        trk->average_duration = trk->track_duration / trk->stts_total_num;
+    }
+}
+
 // Until muxer working, "ftyp" and "free" are write to muxed stream file.
 cdx_int32 Mp4WriteHeader(Mp4MuxContext* s)
 {
@@ -1589,12 +1623,19 @@ cdx_int32 Mp4WriteHeader(Mp4MuxContext* s)
 #endif
 
     MuxMOVContext *mov = (MuxMOVContext*)s->priv_data;
-    cdx_int32 i;
+    cdx_int32 i, ret;
 
-    fileWriteFtypTag(pb,s);
+    ret = fileWriteFtypTag(pb,s);
+    if (ret < 0)
+    {
+        s->is_sdcard_disappear = 1;
+        loge("sdcard may be disappeared!");
+        return -1;
+    }
 
-   for (i = 0; i < MAX_STREAMS_IN_MP4_FILE; i++)
-   {
+
+    for (i = 0; i < MAX_STREAMS_IN_MP4_FILE; i++)
+    {
         if (mov->tracks[i])
         {
              MOVTrack *track= mov->tracks[i];
@@ -1628,7 +1669,6 @@ cdx_int32 Mp4WritePacket(Mp4MuxContext *s, CdxMuxerPacketT *pkt)
     cdx_int8  *pkt_buf = (cdx_int8*)(pkt->buf);
     cdx_uint8 tmp_strm_byte;
     cdx_uint8 tmp_mjpeg_trailer[2];
-    long long last_time, now_time, write_time;
 
     if (NULL == mov || NULL == s->stream_writer)
     {
@@ -1638,6 +1678,11 @@ cdx_int32 Mp4WritePacket(Mp4MuxContext *s, CdxMuxerPacketT *pkt)
 
     if (pkt->streamIndex == -1)//last packet
     {
+        if (mov->last_stream_index < 0)
+        {
+            logw("There is no packet before writing trailer!!!!");
+            return 0;
+        }
         *mov->cache_write_ptr[STSC_ID][mov->last_stream_index]++ = mov->stsc_cnt;
         mov->tracks[mov->last_stream_index]->stsc_total_num++;
         if (mov->tracks[CODEC_TYPE_VIDEO])
@@ -1931,14 +1976,24 @@ cdx_int32 Mp4WritePacket(Mp4MuxContext *s, CdxMuxerPacketT *pkt)
 
     if (pkt->buflen)
     {
-        writeBufferStream(pb, pkt_buf, pkt->buflen);
+        if (writeBufferStream(pb, pkt_buf, pkt->buflen) < 0)
+        {
+            loge("(f:%s, l:%d) !", __FUNCTION__, __LINE__);
+            s->is_sdcard_disappear = 1;
+            return -1;
+        }
     }
 
     if (trk->enc.codec_id == MUX_CODEC_ID_MJPEG)
     {  /* gushiming compressed source */
         tmp_mjpeg_trailer[0] = 0xff;
         tmp_mjpeg_trailer[1] = 0xd9;
-        writeBufferStream(pb, (cdx_int8*)tmp_mjpeg_trailer, 2);
+        if (writeBufferStream(pb, (cdx_int8*)tmp_mjpeg_trailer, 2) < 0)
+        {
+            loge("(f:%s, l:%d) sdcard may be disappear", __FUNCTION__, __LINE__);
+            s->is_sdcard_disappear = 1;
+            return -1;
+        }
     }
 
     //trk->track_duration += 1.0 / trk->enc.frame_rate * trk->track_timescale;
@@ -1972,15 +2027,28 @@ cdx_int32 Mp4WriteTrailer(Mp4MuxContext *s)
 
     Mp4WritePacket(s, &pkt);//update last packet
 
+    if (mov->play_time_length)
+    {
+        setPlayTimeLength(mov);
+    }
+
     fileWriteMoovTag(pb, mov);
 
 #if FS_WRITER
     pb->fsSeek(pb, mov->mdat_pos, SEEK_SET);
-    writeBe32Stream(pb, mov->mdat_size + 8);
+    if (writeBe32Stream(pb, mov->mdat_size + 8) < 0)
+    {
+        loge("Mp4WriteTrailer failed\n");
+        return -1;
+    }
     pb->fsFlush(pb);
 #else
     pb->cdxSeek(pb, mov->mdat_pos, SEEK_SET);
-    writeBe32Stream(pb, mov->mdat_size + 8);
+    if (writeBe32Stream(pb, mov->mdat_size + 8) < 0)
+    {
+        loge("Mp4WriteTrailer failed\n");
+        return -1;
+    }
 #endif
 
     return filesize;

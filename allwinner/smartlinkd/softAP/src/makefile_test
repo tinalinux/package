@@ -1,0 +1,7 @@
+str_test: str_test.o
+	gcc -o str_test str_test.o
+str_test.o: str_test.c
+	gcc -c str_test.c
+
+clean:
+	-rm str_test str_test.o

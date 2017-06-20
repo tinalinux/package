@@ -26,7 +26,7 @@ include $(BUILD_DIR)/cmake.mk
 define Package/cellphoneuxdemo
   SECTION:=gui
   CATEGORY:=Minigui
-  DEPENDS:= +libminigui-gpl
+  DEPENDS:= +libminigui-gpl +libmgncs +libmgeff +libxml2 +libsqlite3
   TITLE:=cellphoneuxdemo
   MAINTAINER:=tracewong <tracewong@outlook.com>
   URL:=http://www.minigui.org/

@@ -95,14 +95,27 @@ LoadFlags += -L../DEMUX/BASE/ \
              -L../PLUGIN/manager \
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
-LoadFlags += -Llibs_for_linux/build-by-arm-linux-gnueabihf/static
-LoadFlags_AC3DTS += -Llibs_for_linux/build-by-arm-linux-gnueabihf/static
-LoadFlags_Normal += -Llibs_for_linux/build-by-arm-linux-gnueabihf/static
+    ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../libcedarc/library/lib32/lgnueabihf_linux310
+    else
+    LoadFlags +=-L../libcedarc/library/lib32/lgnueabihf
+    endif
+    LoadFlags +=-L../EXTERNAL/lib32/lgnueabihf
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../EXTERNAL/lib32/uclibc_arm926
+LoadFlags +=-L../libcedarc/library/lib32/uclibc-arm926
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
 LoadFlags += -L../EXTERNAL/lib32/lgnueabi
-LoadFlags +=-L../libcedarc/library/lib32/lgnueabi
+
+	ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../libcedarc/library/lib32/lgnueabi_linux310
+    else
+    LoadFlags +=-L../libcedarc/library/lib32/lgnueabi
+    endif
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))
@@ -116,19 +129,18 @@ LoadFlags +=-L../libcedarc/library/lib32/linuxgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI))
-LoadFlags +=-L../EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../libcedarc/library/lib32/muslgnueabi
+    ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+    LoadFlags +=-L../libcedarc/library/lib32/muslgnueabi_linux310
+    else
+    LoadFlags +=-L../libcedarc/library/lib32/muslgnueabi
+    endif
+
+    LoadFlags +=-L../EXTERNAL/lib32/muslgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI64))
 LoadFlags +=-L../EXTERNAL/lib64/muslgnueabi
 endif
-
-ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI310))
-LoadFlags +=-L../EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../libcedarc/library/lib32/muslgnueabi_linux310
-endif
-
 ################################################################################
 ## make commands, all/clean/cleanall
 ################################################################################

@@ -11,6 +11,7 @@
 //#define CONFIG_LOG_LEVEL 3
 #define LOG_TAG "httpStream"
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <CdxStream.h>

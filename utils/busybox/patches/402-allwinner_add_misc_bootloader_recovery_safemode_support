@@ -1,31 +1,30 @@
-Index: busybox-1.24.1/init/halt.c
-===================================================================
---- busybox-1.24.1.orig/init/halt.c	2016-03-31 12:30:03.623477267 +0800
-+++ busybox-1.24.1/init/halt.c	2016-03-31 12:35:29.897616264 +0800
-@@ -185,9 +185,9 @@
+--- a/init/halt.c
++++ b/init/halt.c
+@@ -185,9 +185,9 @@ static int set_bootloader_message_block(
  static int write_misc(const char *reason){
-
-	struct bootloader_message boot, temp;
+ 
+ 	struct bootloader_message boot, temp;
 -	if(strcmp(reason,"efex") != 0){
 -		return 0;
 -	}
 +	//if(strcmp(reason,"efex") != 0){
 +	//	return 0;
 +	//}
-
-	memset(&boot, 0, sizeof(boot));
-	//if(!strcmp("recovery",reason)){
-@@ -248,12 +248,23 @@
-	int delay = 0;
-	int which, flags, rc;
-	int argc_index = 0;
+ 
+ 	memset(&boot, 0, sizeof(boot));
+ 	//if(!strcmp("recovery",reason)){
+@@ -248,12 +248,24 @@ int halt_main(int argc UNUSED_PARAM, cha
+ 	int delay = 0;
+ 	int which, flags, rc;
+ 	int argc_index = 0;
 +	char misc_cmd[][20] = {
 +		"efex",
 +		"boot-recovery",
-+		"security"
++		"security",
++		"bootloader"
 +	};
-
-	for(argc_index = 0; argc_index < argc; argc_index++) {
+ 
+ 	for(argc_index = 0; argc_index < argc; argc_index++) {
 -		if(strcmp(argv[argc_index],"efex") == 0)
 -		write_misc("efex");
 +		int writed = -1;
@@ -37,8 +36,8 @@ Index: busybox-1.24.1/init/halt.c
 +			}
 +		}
 +		if(writed == 0) break;
-	}
+ 	}
 -
-	/* Figure out which applet we're running */
-	for (which = 0; "hpr"[which] != applet_name[0]; which++)
-		continue;
+ 	/* Figure out which applet we're running */
+ 	for (which = 0; "hpr"[which] != applet_name[0]; which++)
+ 		continue;

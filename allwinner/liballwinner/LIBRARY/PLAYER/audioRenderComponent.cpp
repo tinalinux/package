@@ -85,7 +85,8 @@ AudioRenderComp* AudioRenderCompCreate(void)
         return NULL;
     }
     memset(p, 0, sizeof(*p));
-	p->volume = -1.0;
+	//p->volume = -1.0;
+	p->volume = 0.0;
 
 	#if(CONFIG_OS == OPTION_OS_ANDROID)
 	p->pSoundCtrlOps = &mSoundControlOps;

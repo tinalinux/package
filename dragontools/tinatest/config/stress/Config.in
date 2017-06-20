@@ -1,0 +1,12 @@
+config TINATEST_STRESS
+    bool "Enable"
+
+if TINATEST_STRESS
+    source Config-reboot.in
+    source Config-io.in
+    source Config-ddr.in
+    source Config-gpu.in
+    source rw/Config.in
+    source cpu/Config.in
+    source Config-standby.in
+endif

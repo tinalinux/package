@@ -13,6 +13,7 @@ c_bt::c_bt(){
     bt_wd[0] = '.';
     bt_wd[1] = '\0';
     bt_on_status = 0;
+    bluetooth_init();
 }
 
 c_bt::~c_bt(){
@@ -34,6 +35,7 @@ int c_bt::bt_on(char *bt_addr){
     get_params_from_config("/etc/config/bluetooth", &bt_params);
 
     /* start bt server */
+    printf("/etc/bluetooth/btenable.sh on %s\n", bt_params.device);
     snprintf(cmd, 512, "/etc/bluetooth/btenable.sh on %s", bt_params.device);
     system(cmd);
     usleep(1000000);
@@ -41,8 +43,42 @@ int c_bt::bt_on(char *bt_addr){
     /*start bluetooth app*/
     bluetooth_start(this,bt_addr);
 
+#if (BT_AVK_ENABLE == 1)
     /*start app avk*/
     start_app_avk();
+#endif
+
+#if (BT_HS_ENABLE == 1)
+    /* start hs */
+    start_app_hs();
+#endif
+
+    this->bt_on_status = 1;
+    return 0;
+}
+
+int c_bt::bt_on_no_avrcp(char *bt_addr){
+
+    char cmd[512] = {0};
+
+    printf("do bt cmd bt on bt_addr path %s\n", bt_addr);
+    if(this->bt_on_status == 1){
+        printf("bt already on\n");
+        return 0;
+    }
+
+    /* start bt server */
+    snprintf(cmd, 512, "/etc/bluetooth/btenable.sh on");
+    system(cmd);
+    usleep(1000000);
+
+    /*start bluetooth app*/
+    bluetooth_start(this,bt_addr);
+
+#if (BT_AVK_ENABLE == 1)
+    /*start app avk*/
+    start_app_avk_no_avrcp();
+#endif
 
     this->bt_on_status = 1;
     return 0;
@@ -56,8 +92,15 @@ int c_bt::bt_off(){
         return 0;
     }
 
+#if (BT_HS_ENABLE == 1)
+    /* stop app hs */
+    stop_app_hs();
+#endif
+
+#if (BT_AVK_ENABLE == 1)
     /*stop app avk*/
     stop_app_avk();
+#endif
 
     /* stop bluetooth app */
     bluetooth_stop();
@@ -81,6 +124,13 @@ int c_bt::set_bt_name(const char *name)
 
     s_set_bt_name(name);
     return 0;
+}
+
+int c_bt::get_bd_addr(const char *bd_addr)
+{
+    if(NULL == bd_addr)
+	return -1;
+    return (s_get_bd_addr(bd_addr));
 }
 
 int c_bt::set_dev_discoverable(int enable)
@@ -115,6 +165,22 @@ int c_bt::connect_auto()
     printf("do bt cmd connect_auto\n");
 
     return s_connect_auto();
+}
+
+int c_bt::connect_dev_by_addr(BT_ADDR bt_addr)
+{
+    int i = 0;
+    S_BT_ADDR s_bt_addr;
+
+    printf("do bt cmd connect dev by addr %02X:%02X:%02X:%02X:%02X:%02X\n",
+                    bt_addr[0], bt_addr[1], bt_addr[2],
+                    bt_addr[3], bt_addr[4], bt_addr[5]);
+
+    for(i = 0; i < BT_ADDR_LEN; i++){
+        s_bt_addr[i] = bt_addr[i];
+    }
+    s_connect_dev_by_addr(s_bt_addr);
+    return 0;
 }
 
 int c_bt::disconnect()
@@ -157,6 +223,27 @@ int c_bt::avk_pause()
     return 0;
 }
 
+int c_bt::avk_stop()
+{
+    printf("do bt cmd avk stop\n");
+    s_avk_stop();
+    return 0;
+}
+
+int c_bt::avk_close_pcm_alsa()
+{
+    printf("do bt cmd avk pcm alsa\n");
+    s_avk_close_pcm_alsa();
+    return 0;
+}
+
+int c_bt::avk_resume_pcm_alsa()
+{
+    printf("do bt cmd avk resume pcm alsa\n");
+    s_avk_resume_pcm_alsa();
+    return 0;
+}
+
 int c_bt::avk_previous()
 {
     printf("do bt cmd avk previous\n");
@@ -168,6 +255,25 @@ int c_bt::avk_next()
 {
     printf("do bt cmd avk next\n");
     s_avk_play_next();
+    return 0;
+}
+
+int c_bt::avk_get_music_info(tBT_AVK_MUSIC_INFO *p_avk_music_info)
+{
+    s_avk_element_attr_t s_avk_element_attr;
+
+    printf("do bt cmd avk get music info\n");
+
+    if(!p_avk_music_info){
+	printf("Error: avk music info is NULL!\n");
+	return -1;
+    }
+    s_avk_get_element_attr(&s_avk_element_attr);
+
+    memcpy(p_avk_music_info->title, s_avk_element_attr.title, AVK_MUSIC_INFO_LEN_MAX);
+    memcpy(p_avk_music_info->artist, s_avk_element_attr.artist, AVK_MUSIC_INFO_LEN_MAX);
+    memcpy(p_avk_music_info->album, s_avk_element_attr.album, AVK_MUSIC_INFO_LEN_MAX);
+    //memcpy(p_avk_music_info->playing_time, s_avk_element_attr.playing_time, AVK_MUSIC_INFO_LEN_MAX);
     return 0;
 }
 
@@ -188,11 +294,11 @@ void c_bt::set_callback(tBtCallback *pCb)
     pBtCb = pCb;
 }
 
-void c_bt::event_callback(BT_EVENT bt_event)
+void c_bt::event_callback(BT_EVENT bt_event, void *reply, int *len)
 {
     printf("received bt event 0x%x\n", bt_event);
     if(pBtCb){
-        pBtCb(bt_event);
+        pBtCb(bt_event, reply, len);
     }
 }
 
@@ -201,42 +307,70 @@ void c_bt::do_test()
     ;
 }
 
-extern "C" void bt_event_transact(void *p, APP_BT_EVENT event, char *reply, int *len)
+extern "C" void bt_event_transact(void *p, APP_BT_EVENT event, void *reply, int *len)
 {
     c_bt *p_c_bt = (c_bt *)p;
     switch(event)
     {
           case APP_AVK_CONNECTED_EVT:
           {
-              p_c_bt->event_callback(BT_AVK_CONNECTED_EVT);
+              p_c_bt->event_callback(BT_AVK_CONNECTED_EVT, NULL, NULL);
               break;
           }
 
           case APP_AVK_DISCONNECTED_EVT:
           {
-              p_c_bt->event_callback(BT_AVK_DISCONNECTED_EVT);
+              p_c_bt->event_callback(BT_AVK_DISCONNECTED_EVT, reply, len);
               break;
           }
 
         case APP_AVK_CONNECT_COMPLETED_EVT:
         {
-            p_c_bt->event_callback(BT_AVK_CONNECT_COMPLETED_EVT);
+            p_c_bt->event_callback(BT_AVK_CONNECT_COMPLETED_EVT, NULL, NULL);
             break;
         }
 
         case APP_AVK_START_EVT:
         {
-            p_c_bt->event_callback(BT_AVK_START_EVT);
+            p_c_bt->event_callback(BT_AVK_START_EVT, NULL, NULL);
             break;
         }
 
         case APP_AVK_STOP_EVT:
         {
-            p_c_bt->event_callback(BT_AVK_STOP_EVT);
+            p_c_bt->event_callback(BT_AVK_STOP_EVT, NULL, NULL);
             break;
         }
 
-        default:
+	case APP_HS_CONNECTED_EVT:
+	{
+	    p_c_bt->event_callback(BT_HS_CONNECTED_EVT, NULL, NULL);
+	    break;
+	}
+
+	case APP_HS_DISCONNECTED_EVT:
+	{
+	    p_c_bt->event_callback(BT_HS_DISCONNECTED_EVT, NULL, NULL);
+	    break;
+	}
+
+	case APP_HS_AUDIO_OPEN_EVT:
+	{
+	    p_c_bt->event_callback(BT_HS_RING_EVT, NULL, NULL);
+	    break;
+	}
+
+	case APP_HS_AUDIO_CLOSE_EVT:
+	{
+	    p_c_bt->event_callback(BT_HS_OK_EVT, NULL, NULL);
+	    break;
+	}
+	
+	case APP_HS_RING_EVT:
+	{
+	    p_c_bt->event_callback(BT_HS_RING_EVT, NULL, NULL);
+	}
+	default:
                 ;
     }
 }

@@ -54,6 +54,10 @@
 #define BSA_AVK_FEATURES    (BSA_AVK_FEAT_RCCT|BSA_AVK_FEAT_RCTG|BSA_AVK_FEAT_VENDOR|BSA_AVK_FEAT_METADATA | BSA_AVK_FEAT_BROWSE)
 #endif
 
+#ifndef BSA_AVK_FEATURES_NO_AVRCP
+#define BSA_AVK_FEATURES_NO_AVRCP    (BSA_AVK_FEAT_VENDOR|BSA_AVK_FEAT_METADATA | BSA_AVK_FEAT_BROWSE)
+#endif
+
 #ifndef BSA_AVK_DUMP_RX_DATA
 #define BSA_AVK_DUMP_RX_DATA FALSE
 #endif
@@ -83,11 +87,16 @@ tBSA_AVK_REG_NOTIFICATIONS reg_notifications =
  */
 
 tAPP_AVK_CB app_avk_cb;
+extern int connect_link_status;
+extern int pcm_set_flag;
 
 #ifdef PCM_ALSA
-//static char *alsa_device = "default"; /* ALSA playback device */
+//static char *alsa_device = "default";     /* ALSA playback device */
 static char *alsa_device = "plug:dmix"; /* ALSA playback device */
 #endif
+
+static pcm_params pcm_alsa_params;
+static int pcm_alsa_close_cmd = 0;
 
 #ifdef BT_RESAMPLE
 /* PCM sub formats */
@@ -395,15 +404,38 @@ static int alsa_set_pcm_params(snd_pcm_t *playback_handle,
 	snd_pcm_hw_params_free(hw_params);
 	return 0;
 }
-
-static void mixer_set(char* name, int value)
-{
-    char cmd[100];
-    sprintf(cmd,"amixer cset name='%s' %d",name,value);
-    system(cmd);
-}
 #endif
 
+static void avk_pcm_set_output(void)
+{
+	system("amixer cset name='headphone volume' 50");
+	system("amixer cset name='DACL Mixer AIF1DA0L Switch' 1");
+	system("amixer cset name='DACR Mixer AIF1DA0R Switch' 1");
+	system("amixer cset name='Headphone Switch' 1");
+}
+
+static void avk_pcm_close_output(void)
+{
+	system("amixer cset name='DACL Mixer AIF1DA0L Switch' 0");
+	system("amixer cset name='DACR Mixer AIF1DA0R Switch' 0");
+}
+
+static void avk_close_hs_output(void)
+{
+	system("amixer cset name='DACR Mixer AIF2DACR Switch' 0");
+	system("amixer cset name='DACL Mixer AIF2DACL Switch' 0");
+	system("amixer cset name='AIF2INR Mux VIR switch aif2inr aif3' 0");
+}
+
+static void avk_close_hs_input(void)
+{
+	system("amixer cset name='AIF3OUT Mux' 0");
+	system("amixer cset name='AIF2 ADR Mixer ADCR Switch' 0");
+	system("amixer cset name='AIF2 ADL Mixer ADCL Switch' 0");
+	system("amixer cset name='LEFT ADC input Mixer MIC1 boost Switch' 0");
+	system("amixer cset name='RIGHT ADC input Mixer MIC1 boost Switch' 0");
+
+}
 /*******************************************************************************
 **
 ** Function         app_avk_handle_start
@@ -452,12 +484,32 @@ static void app_avk_handle_start(tBSA_AVK_MSG *p_data, tAPP_AVK_CONNECTION *conn
         /* If ALSA PCM driver was already open => close it */
         if (app_avk_cb.alsa_handle != NULL)
         {
-            //printf("app_avk_handle_start snd_pcm_close\n");
-            //snd_pcm_close(app_avk_cb.alsa_handle);
-            //app_avk_cb.alsa_handle = NULL;
-            pthread_mutex_unlock(&alsa_opt_mutex);
-            return ;
-        }
+
+			if (connection->bit_per_sample == 8)
+                format = SND_PCM_FORMAT_U8;
+            else
+                format = SND_PCM_FORMAT_S16_LE;
+			if ((pcm_alsa_params.format == format)
+				&& (pcm_alsa_params.num_channel == connection->num_channel)
+				&& (pcm_alsa_params.sample_rate == connection->sample_rate)) {
+				pthread_mutex_unlock(&alsa_opt_mutex);
+				return;
+			} else {
+				printf("Already open: snd_pcm_close\n");
+				snd_pcm_close(app_avk_cb.alsa_handle);
+				app_avk_cb.alsa_handle = NULL;		
+			}
+		}
+
+		//wait hs audio close
+		if(pcm_set_flag == 1){
+			avk_close_hs_output();
+			avk_close_hs_input();
+			pcm_set_flag = 0;
+		}
+
+		/* set output */
+		avk_pcm_set_output();
 
         /* Open ALSA driver */
         status = snd_pcm_open(&(app_avk_cb.alsa_handle), alsa_device,
@@ -511,12 +563,16 @@ static void app_avk_handle_start(tBSA_AVK_MSG *p_data, tAPP_AVK_CONNECTION *conn
             if (status < 0)
             {
                 APP_ERROR1("snd_pcm_set_params failed: %s", snd_strerror(status));
+				snd_pcm_close(app_avk_cb.alsa_handle);
+				app_avk_cb.alsa_handle = NULL;
                 pthread_mutex_unlock(&alsa_opt_mutex);
                 return ;
             }
 
-            /* set output */
-//            mixer_set("Speaker Function",2);
+            /* store pcm params */
+            pcm_alsa_params.format = format;
+            pcm_alsa_params.num_channel = connection->num_channel;
+            pcm_alsa_params.sample_rate = connection->sample_rate;
         }
 
         pthread_mutex_unlock(&alsa_opt_mutex);
@@ -672,6 +728,28 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
     case BSA_AVK_STOP_EVT:
         APP_DEBUG1("BSA_AVK_STOP_EVT streaming: %d  Suspended: %d", p_data->stop.streaming, p_data->stop.suspended);
 
+				/* close alsa dev */
+#ifdef PCM_ALSA
+				pthread_mutex_lock(&alsa_opt_mutex);
+
+				/* If ALSA PCM driver was already open => close it */
+				if (app_avk_cb.alsa_handle != NULL)
+				{
+						printf("BSA_AVK_STOP_EVT snd_pcm_close\n");
+						snd_pcm_close(app_avk_cb.alsa_handle);
+						app_avk_cb.alsa_handle = NULL;
+				}
+#ifdef BT_RESAMPLE
+				if (out.resampler) {
+						release_resampler(out.resampler);
+						out.resampler = NULL;
+				}
+#endif
+
+				avk_pcm_close_output();
+				pthread_mutex_unlock(&alsa_opt_mutex);
+#endif /* PCM_ALSA */
+
         if(p_data->stop.suspended)
         {
             connection = app_avk_find_connection_by_bd_addr(p_data->stop.bd_addr);
@@ -692,32 +770,6 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
 
             connection->is_streaming_open = FALSE;
 
-/* close alsa dev */
-            if (connection->format == BSA_AVK_CODEC_PCM){
-#ifdef PCM_ALSA
-
-                pthread_mutex_lock(&alsa_opt_mutex);
-
-                /* If ALSA PCM driver was already open => close it */
-                if (app_avk_cb.alsa_handle != NULL)
-                {
-                    printf("BSA_AVK_STOP_EVT1 snd_pcm_close\n");
-                    snd_pcm_close(app_avk_cb.alsa_handle);
-                    app_avk_cb.alsa_handle = NULL;
-                }
-#ifdef BT_RESAMPLE
-                if (out.resampler) {
-					release_resampler(out.resampler);
-					out.resampler = NULL;
-				}
-#endif
-
-                pthread_mutex_unlock(&alsa_opt_mutex);
-
-
-#endif /* PCM_ALSA */
-            }
-
         }
         else
         {
@@ -737,33 +789,6 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
             }
             else
                 app_avk_close_wave_file(connection);
-
-            /* close alsa dev */
-            if (connection->format == BSA_AVK_CODEC_PCM){
-#ifdef PCM_ALSA
-
-                pthread_mutex_lock(&alsa_opt_mutex);
-
-
-                /* If ALSA PCM driver was already open => close it */
-                if (app_avk_cb.alsa_handle != NULL)
-                {
-                    printf("BSA_AVK_STOP_EVT2 snd_pcm_close\n");
-                    snd_pcm_close(app_avk_cb.alsa_handle);
-                    app_avk_cb.alsa_handle = NULL;
-                }
-#ifdef BT_RESAMPLE
-                if (out.resampler) {
-					release_resampler(out.resampler);
-					out.resampler = NULL;
-				}
-#endif
-
-                pthread_mutex_unlock(&alsa_opt_mutex);
-
-#endif /* PCM_ALSA */
-            }
-
         }
 
         break;
@@ -943,8 +968,54 @@ int app_avk_close_pcm_alsa()
         snd_pcm_close(app_avk_cb.alsa_handle);
         app_avk_cb.alsa_handle = NULL;
     }
+    pcm_alsa_close_cmd = 1;
     pthread_mutex_unlock(&alsa_opt_mutex);
 
+#endif /* PCM_ALSA */
+
+    return 0;
+}
+
+int app_avk_resume_pcm_alsa()
+{
+    int status = 0;
+
+    /* resume alsa dev  */
+#ifdef PCM_ALSA
+    pthread_mutex_lock(&alsa_opt_mutex);
+    if (pcm_alsa_close_cmd == 1 && app_avk_cb.alsa_handle == NULL){
+         /* Open ALSA driver */
+        status = snd_pcm_open(&(app_avk_cb.alsa_handle), alsa_device,
+            SND_PCM_STREAM_PLAYBACK, 0);
+        if (status < 0)
+        {
+            APP_ERROR1("snd_pcm_open failed: %s", snd_strerror(status));
+            pthread_mutex_unlock(&alsa_opt_mutex);
+            return -1;
+        }
+        else
+        {
+            APP_DEBUG0("ALSA driver opened");
+            /* Configure ALSA driver with PCM parameters */
+            status = snd_pcm_set_params(app_avk_cb.alsa_handle, pcm_alsa_params.format,
+                SND_PCM_ACCESS_RW_INTERLEAVED, pcm_alsa_params.num_channel,
+                pcm_alsa_params.sample_rate, 1, 400000);/* 0.4sec */
+            if (status < 0)
+            {
+                APP_ERROR1("snd_pcm_set_params failed: %s", snd_strerror(status));
+				snd_pcm_close(app_avk_cb.alsa_handle);
+				app_avk_cb.alsa_handle = NULL;
+				pthread_mutex_unlock(&alsa_opt_mutex);
+                return -1;
+            }
+
+            /* set output */
+            //mixer_set("Speaker Function",2);
+        }
+        pcm_alsa_close_cmd = 0;
+    }
+
+    pthread_mutex_unlock(&alsa_opt_mutex);
 #endif /* PCM_ALSA */
 
     return 0;
@@ -1023,7 +1094,12 @@ int app_avk_auto_connect(BD_ADDR bt_auto_addr)
             /* this is an active wait for demo purpose */
             printf("waiting for AV connection to open\n");
 
-            while (app_avk_cb.open_pending == TRUE);
+            while (app_avk_cb.open_pending == TRUE){
+				if (connect_link_status == 0){
+					printf("Link down when connect auto\n");
+					return -1;
+				}
+			}
 
             connection = app_avk_find_connection_by_bd_addr(open_param.bd_addr);
             if(connection == NULL || connection->is_open == FALSE)
@@ -1056,6 +1132,85 @@ int app_avk_auto_connect(BD_ADDR bt_auto_addr)
     }
     return 0;
 }
+
+int app_avk_connect_by_addr(BD_ADDR bd_addr)
+{
+    tBSA_STATUS status;
+	char *bt_name = "bt test";
+	UINT8 *p_name = (UINT8 *)bt_name;
+	tBSA_AVK_OPEN open_param;
+    tAPP_AVK_CONNECTION *connection = NULL;
+
+    if (app_avk_cb.open_pending)
+    {
+        APP_ERROR0("already trying to connect");
+        return -1;
+    }
+
+    /* Open AVK stream */
+    printf("Connecting to device %02X:%02X:%02X:%02X:%02X:%02X\n",
+                bd_addr[0], bd_addr[1], bd_addr[2],
+                bd_addr[3], bd_addr[4], bd_addr[5]);
+
+    app_avk_cb.open_pending = TRUE;
+
+    BSA_AvkOpenInit(&open_param);
+    memcpy((char *) (open_param.bd_addr), bd_addr, sizeof(BD_ADDR));
+
+    open_param.sec_mask = BSA_SEC_NONE;
+    status = BSA_AvkOpen(&open_param);
+    if (status != BSA_SUCCESS)
+    {
+        APP_ERROR1("Unable to connect to device %02X:%02X:%02X:%02X:%02X:%02X with status %d",
+                open_param.bd_addr[0], open_param.bd_addr[1], open_param.bd_addr[2],
+                open_param.bd_addr[3], open_param.bd_addr[4], open_param.bd_addr[5], status);
+
+        app_avk_cb.open_pending = FALSE;
+        return -1;
+    }
+    else
+    {
+        /* this is an active wait for demo purpose */
+        printf("waiting for AV connection to open\n");
+
+		while (app_avk_cb.open_pending == TRUE){
+			if (connect_link_status == 0){
+				printf("Link down when connect by addr\n");
+				return -1;
+			}
+		}
+
+        connection = app_avk_find_connection_by_bd_addr(open_param.bd_addr);
+        if(connection == NULL || connection->is_open == FALSE)
+        {
+            printf("failure opening AV connection\n");
+            return -1;
+        }
+        else
+        {
+            /* Read the Remote device xml file to have a fresh view */
+            app_read_xml_remote_devices();
+
+            /* Add AV service for this devices in XML database */
+            app_xml_add_trusted_services_db(app_xml_remote_devices_db,
+                APP_NUM_ELEMENTS(app_xml_remote_devices_db), bd_addr,
+                BSA_A2DP_SERVICE_MASK | BSA_AVRCP_SERVICE_MASK);
+
+            app_xml_update_name_db(app_xml_remote_devices_db,
+                APP_NUM_ELEMENTS(app_xml_remote_devices_db), bd_addr, p_name);
+
+            /* Update database => write to disk */
+            if (app_write_xml_remote_devices() < 0)
+            {
+                APP_ERROR0("Failed to store remote devices database");
+            }
+        }
+    }
+
+    return 0;
+}
+
+
 
 /*******************************************************************************
  **
@@ -1507,7 +1662,6 @@ static void app_avk_uipc_cback(BT_HDR *p_msg)
     }
 
 #ifdef PCM_ALSA
-
     pthread_mutex_lock(&alsa_opt_mutex);
 
     if (app_avk_cb.alsa_handle != NULL && p_buffer)
@@ -1600,6 +1754,54 @@ int app_avk_init(tAvkCallback pcb /* = NULL */)
 
     bsa_avk_enable_param.sec_mask = BSA_AVK_SECURITY;
     bsa_avk_enable_param.features = BSA_AVK_FEATURES;
+    bsa_avk_enable_param.p_cback = app_avk_cback;
+
+    status = BSA_AvkEnable(&bsa_avk_enable_param);
+    if (status != BSA_SUCCESS)
+    {
+        APP_ERROR0("Unable to enable AVK service");
+        return -1;
+    }
+
+    pthread_mutex_init(&alsa_opt_mutex, NULL);
+
+    return BSA_SUCCESS;
+
+}
+
+/*******************************************************************************
+**
+** Function         app_avk_init_no_avrcp
+**
+** Description      Init Manager application
+**
+** Parameters       Application callback (if null, default will be used)
+**
+** Returns          0 if successful, error code otherwise
+**
+*******************************************************************************/
+int app_avk_init_no_avrcp(tAvkCallback pcb /* = NULL */)
+{
+    tBSA_AVK_ENABLE bsa_avk_enable_param;
+    tBSA_STATUS status;
+
+    /* register callback */
+    s_pCallback = pcb;
+
+    /* Initialize the control structure */
+    memset(&app_avk_cb, 0, sizeof(app_avk_cb));
+    app_avk_cb.uipc_audio_channel = UIPC_CH_ID_BAD;
+
+    app_avk_cb.fd = -1;
+
+    /* set sytem vol at 50% */
+    app_avk_cb.volume = (UINT8)((BSA_MAX_ABS_VOLUME - BSA_MIN_ABS_VOLUME)>>1);
+
+    /* get hold on the AVK resource, synchronous mode */
+    BSA_AvkEnableInit(&bsa_avk_enable_param);
+
+    bsa_avk_enable_param.sec_mask = BSA_AVK_SECURITY;
+    bsa_avk_enable_param.features = BSA_AVK_FEATURES_NO_AVRCP;
     bsa_avk_enable_param.p_cback = app_avk_cback;
 
     status = BSA_AvkEnable(&bsa_avk_enable_param);

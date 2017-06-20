@@ -112,7 +112,7 @@ typedef enum {
 typedef struct MpegTSSection {
     int pid;
     int cc;
-    void (*write_packet)(struct MpegTSSection *s, cdx_uint8 *packet);
+    int (*write_packet)(struct MpegTSSection *s, cdx_uint8 *packet);
     void *opaque;
 }MpegTSSection;
 
@@ -228,9 +228,10 @@ typedef struct TsMuxContext {
     int                     first_video_pts;
     long long               base_video_pts;
     unsigned int            pcr_counter;
+    cdx_uint8               is_sdcard_disappear;
 } TsMuxContext;
 
 extern int TsWritePacket(TsMuxContext *s, CdxMuxerPacketT *pkt);
 extern int TsWriteTrailer(TsMuxContext *s);
-extern void TsSectionWritePacket(MpegTSSection *s, cdx_uint8 *packet);
+extern int TsSectionWritePacket(MpegTSSection *s, cdx_uint8 *packet);
 #endif /* CDX_TS_MUXER_H */

@@ -22,7 +22,7 @@ PKG_BUILD_PARALLEL:=0
 
 include $(BUILD_DIR)/package.mk
 
-CONFIGURE_PREFIX=$(STAGING_DIR)/host
+CONFIGURE_PREFIX=$(OUT_DIR)/host
 export GLOBAL_LIBDIR=$(STAGING_DIR)/usr/lib
 
 define Package/libltdl

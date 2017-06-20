@@ -20,7 +20,7 @@ extern "C"
 
 c_bt c;
 
-typedef void (tBtCallback)(BT_EVENT event);
+typedef void (tBtCallback)(BT_EVENT event, void *reply, int *len);
 static struct {
     int isConnected;
     int isPlaying;
@@ -281,7 +281,7 @@ static void bluetooth_Set_Callback(tBtCallback *pCb)
 * Return:
 *   none
 *====================================================*/
-static void bluetooth_Callback(BT_EVENT event)
+static void bluetooth_Callback(BT_EVENT event, void *reply, int *len)
 {
     char tmp[100];
     switch(event)

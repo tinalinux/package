@@ -1,3 +1,6 @@
+include $(TOPDIR)/rules.mk
+include $(BUILD_DIR)/kernel.mk
+
 target			= libwifimg.so
 
 INCLUDES        += -I. -I./include
@@ -12,7 +15,16 @@ install:
 	@cp ./include/wifi_intf.h $(CONFIG_PREFIX)/usr/include
 
 #libwifimg.so
-$(target): $(SRCS) libwpa_client.a
+ifeq ($(CONFIG_ARCH), "aarch64")
+    SRCS += libwpa_client_64.a
+else
+    ifeq ($(CONFIG_SOFT_FLOAT), y)
+        SRCS += libwpa_client_softft.a
+    else
+        SRCS += libwpa_client.a
+    endif
+endif
+$(target): $(SRCS)
 	$(CC) -fPIC -shared $(INCLUDES) $(LDFLAGS) $^ -o $@ $(LIBS)
 	@cp $@ $(CONFIG_PREFIX)/usr/lib
 

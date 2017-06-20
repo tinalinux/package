@@ -30,15 +30,15 @@ int initMov(Mp4MuxContext *impl)
     if ((mov->cache_keyframe_ptr = (cdx_uint32*)malloc(KEYFRAME_CACHE_SIZE)) == NULL)
     {
         loge("mov->cache_keyframe_ptr malloc failed\n");
-		free(mov);
+        free(mov);
         return -2;
     }
 
     if ((impl->mov_inf_cache = (cdx_int8*)malloc(TOTAL_CACHE_SIZE * 4)) == NULL)
     {
         loge("Mp4MuxContext->mov_inf_cache malloc failed\n");
-		free(mov->cache_keyframe_ptr);
-		free(mov);
+        free(mov->cache_keyframe_ptr);
+        free(mov);
         return -3;
     }
 
@@ -106,7 +106,7 @@ void freeMov(Mp4MuxContext* impl)
         {
             close(mov->fd_stts[i]);
             mov->fd_stts[i] = 0;
-            if(0 == impl->is_sdcard_disapear)
+            if(0 == impl->is_sdcard_disappear)
             {
                 remove(mov->file_path_stts[i]);
                 logd("(f:%s, l:%d) remove fd_stts[%d]name[%s]",
@@ -117,7 +117,7 @@ void freeMov(Mp4MuxContext* impl)
         {
             close(mov->fd_stsz[i]);
             mov->fd_stsz[i] = 0;
-            if(0 == impl->is_sdcard_disapear)
+            if(0 == impl->is_sdcard_disappear)
             {
                 remove(mov->file_path_stsz[i]);
                 logd("(f:%s, l:%d) remove fd_stsz[%d]name[%s]",
@@ -128,7 +128,7 @@ void freeMov(Mp4MuxContext* impl)
         {
             close(mov->fd_stco[i]);
             mov->fd_stco[i] = 0;
-            if(0 == impl->is_sdcard_disapear)
+            if(0 == impl->is_sdcard_disappear)
             {
                 remove(mov->file_path_stco[i]);
                 logd("(f:%s, l:%d) remove fd_stco[%d]name[%s]",
@@ -139,7 +139,7 @@ void freeMov(Mp4MuxContext* impl)
         {
             close(mov->fd_stsc[i]);
             mov->fd_stsc[i] = 0;
-            if(0 == impl->is_sdcard_disapear)
+            if(0 == impl->is_sdcard_disappear)
             {
                 remove(mov->file_path_stsc[i]);
                 logd("(f:%s, l:%d) remove fd_stsc[%d]name[%s]",
@@ -259,7 +259,6 @@ static int __Mp4MuxerSetMediaInfo(CdxMuxerT *mux, CdxMuxerMediaInfoT *p_media_in
 {
     Mp4MuxContext *impl = (Mp4MuxContext*)mux;
     MuxMOVContext *mov;
-    int cnt;
 
     if (p_media_info == NULL)
     {
@@ -303,12 +302,16 @@ static int __Mp4MuxerWriteHeader(CdxMuxerT *mux)
 {
     Mp4MuxContext *impl = (Mp4MuxContext*)mux;
     MuxMOVContext *mov = impl->priv_data;
-    cdx_int8 *p_cache = NULL;
-    cdx_uint32 n_cache_size = 0;
-    cdx_uint32 video_id = mov->tracks[0]->enc.codec_id;
+    CdxFsWriterInfo *p_fs;
+
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappeared, can't write header!");
+        return -1;
+    }
 
 #if FS_WRITER
-    CdxFsWriterInfo *p_fs = &impl->fs_writer_info;
+    p_fs = &impl->fs_writer_info;
 
     if (p_fs->mp_fs_writer)
     {
@@ -318,6 +321,9 @@ static int __Mp4MuxerWriteHeader(CdxMuxerT *mux)
     }
     if (impl->stream_writer)
     {
+        cdx_int8 *p_cache = NULL;
+        cdx_uint32 n_cache_size = 0;
+        cdx_uint32 video_id = mov->tracks[0]->enc.codec_id;
         FSWRITEMODE mode = p_fs->m_fs_writer_mode;
         if (FSWRITEMODE_CACHETHREAD == mode)
         {
@@ -380,12 +386,22 @@ static int __Mp4MuxerWriteExtraData(CdxMuxerT *mux, unsigned char *vos_data, int
 static int __Mp4MuxerWritePacket(CdxMuxerT *mux, CdxMuxerPacketT *packet)
 {
     Mp4MuxContext *impl = (Mp4MuxContext*)mux;
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappeared, can't write packet!");
+        return -1;
+    }
     return Mp4WritePacket(impl, packet);
 }
 
 static int __Mp4MuxerWriteTrailer(CdxMuxerT *mux)
 {
     Mp4MuxContext *impl = (Mp4MuxContext*)mux;
+    if (impl->is_sdcard_disappear)
+    {
+        loge("sdcard may be disappear, can't write trailer!");
+        return -1;
+    }
     return Mp4WriteTrailer(impl);
 }
 
@@ -417,6 +433,21 @@ static int __Mp4MuxerControl(CdxMuxerT *mux, int u_cmd, void *p_param)
             strcpy(mov->mov_tmpfile_path, (char*)p_param);
             break;
         }
+        case SET_PLAY_TIME_LENGTH:
+        {
+            mov->play_time_length = *((cdx_int64*)p_param);
+            break;
+        }
+        case SET_IS_SDCARD_DISAPPEAR:
+        {
+            impl->is_sdcard_disappear = *((cdx_uint8*)p_param);
+            break;
+        }
+        case GET_IS_SDCARD_DISAPPEAR:
+        {
+            *((cdx_uint8*)p_param) = impl->is_sdcard_disappear;
+            break;
+        }
         default:
         {
             break;
@@ -429,7 +460,7 @@ static int __Mp4MuxerClose(CdxMuxerT *mux)
 {
     Mp4MuxContext *impl = (Mp4MuxContext*)mux;
     MuxMOVContext *mov = NULL;
-    int cnt;
+
     if(impl == NULL)
     {
         logv("Mp4MuxContext* is NULL\n");

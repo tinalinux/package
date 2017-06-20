@@ -13,7 +13,6 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <CdxSSLStream.h>
 #include <CdxTypes.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -21,6 +20,43 @@
 #include <CdxSocketUtil.h>
 #include <netdb.h>
 
+#include <CdxStream.h>
+#include <CdxAtomic.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#include <SmartDnsService.h>
+
+#define SOCKRECVBUF_LEN 512*1024// 262142 (5*1024*1024)
+#define closesocket close
+
+typedef struct CdxSSLStreamImpl
+{
+    CdxStreamT base;
+    cdx_int32 ioState;
+    cdx_int32 sockRecvBufLen;
+    cdx_int32 notBlockFlag;
+    cdx_int32 exitFlag;                  //when close, exit
+    cdx_int32 forceStopFlag;
+    cdx_int32 sockFd;                    //socket fd
+    //int eof;                           //all stream data is read from network
+    cdx_int32 port;
+    cdx_char *hostname;
+    cdx_atomic_t ref;                    //reference count, for free resource while still blocking.
+    cdx_atomic_t state;
+    pthread_mutex_t stateLock;
+    pthread_cond_t  stateCond;
+
+    SSL *ssl;
+    SSL_CTX *ctx;
+
+    pthread_cond_t dnsCond;
+    pthread_mutex_t dnsMutex;
+    int dnsRet;
+    struct addrinfo *dnsAI;
+
+    //add more
+}CdxSSLStreamImplT;
 static cdx_void CdxSSLStreamDecRef(CdxStreamT *stream);
 
 typedef struct CdxHttpSendBuffer
@@ -59,11 +95,42 @@ static int64_t GetNowUs()
     return (int64_t)tv.tv_sec * 1000000ll + tv.tv_usec;
 }
 
+static int
+handle_ssl_error(SSL *ssl, int r, int *write_select, int *read_select,
+              int *closed)
+{
+    int err = SSL_get_error(ssl, r);
+	//CDX_LOGD("input:ret = %d ,error = %d",r,err);
+    if (err == SSL_ERROR_NONE) {
+        assert(r > 0);
+        return 0;
+    }
+
+    assert(r <= 0);
+
+    switch (err) {
+    case SSL_ERROR_ZERO_RETURN:
+        assert(r == 0);
+        *closed = 1;
+        return 0;
+
+    case SSL_ERROR_WANT_WRITE:
+        *write_select = 1;
+        return 0;
+
+    case SSL_ERROR_WANT_READ:
+        *read_select = 1;
+        return 0;
+    }
+
+    return -1;
+}
+
 cdx_int32  CdxSSLConnect(cdx_int32 sockfd, SSL *ssl,
                         cdx_long timeoutUs, cdx_int32 *pForceStop)
 {
     cdx_int32 ret, ioErr;
-    fd_set ws;
+    fd_set rws,errs;
     struct timeval tv;
     cdx_long loopTimes = 0, i = 0;
 
@@ -77,8 +144,9 @@ cdx_int32  CdxSSLConnect(cdx_int32 sockfd, SSL *ssl,
                 CDX_LOGE("<%s,%d>force stop.", __FUNCTION__, __LINE__);
                 return -2;
             }
-
+			CDX_LOGD("llh>>>SSL_connect begin");
             ret = SSL_connect(ssl);
+			CDX_LOGD("llh>>>SSL_connect finish");
             if (ret > 0)
             {
                 //success
@@ -119,12 +187,21 @@ cdx_int32  CdxSSLConnect(cdx_int32 sockfd, SSL *ssl,
         loopTimes = timeoutUs/CDX_SELECT_TIMEOUT;
     }
 
-    while(1)
+    i = 0;
+    ret = 0;
+    CDX_LOGD("llh>>>SSL_connect start");
+    while( i < loopTimes )
     {
+        if (pForceStop && *pForceStop)
+        {
+            CDX_LOGE("<%s,%d>force stop", __FUNCTION__, __LINE__);
+            return -2;
+        }
         ret = SSL_connect(ssl);
         if (ret > 0)
         {
             //success
+            CDX_LOGD("llh>>>SSL_connect finish, retry times: %ld", i);
             return 0;
         }
         else if(ret == 0)
@@ -137,49 +214,41 @@ cdx_int32  CdxSSLConnect(cdx_int32 sockfd, SSL *ssl,
         }
         else
         {
+            FD_ZERO(&rws);
+            FD_SET(sockfd, &rws);
+            FD_ZERO(&errs);
+            FD_SET(sockfd, &errs);
+            tv.tv_sec = 0;
+            tv.tv_usec = CDX_SELECT_TIMEOUT;
             ret = SSL_get_error(ssl, ret);
-            if(ret == SSL_ERROR_WANT_WRITE)
-            {
-                for (i = 0; i < loopTimes; i++)
-                {
-                    if (pForceStop && *pForceStop)
-                    {
-                        CDX_LOGE("<%s,%d>force stop", __FUNCTION__, __LINE__);
-                        return -2;
-                    }
-                    FD_ZERO(&ws);
-                    FD_SET(sockfd, &ws);
-                    tv.tv_sec = 0;
-                    tv.tv_usec = CDX_SELECT_TIMEOUT;
-                    ret = select(sockfd + 1, NULL, &ws, NULL, &tv);
-                    if (ret > 0)
-                    {
-                        break;//return 0;
-                    }
-                    else if (ret == 0)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        ioErr = errno;
-                        if (EINTR == ioErr)
-                        {
-                            continue;
-                        }
-                        CDX_LOGE("<%s,%d>select err(%d)", __FUNCTION__, __LINE__, errno);
-                        return -1;
-                    }
-                }
-            }
-            else
-            {
+            if(ret == SSL_ERROR_WANT_WRITE){
+                ret = select(sockfd + 1, NULL, &rws, &errs, &tv);
+            }else if(ret == SSL_ERROR_WANT_READ){
+                ret = select(sockfd + 1, &rws, NULL, &errs, &tv);
+            }else{
                 CDX_LOGE("xxx ret(%d), %s", ret, ERR_error_string(ERR_get_error(), NULL));
                 return -1;
             }
+            if(ret > 0) continue;
+            else if (ret < 0)
+            {
+                ioErr = errno;
+                if (EINTR == ioErr)
+                {
+                    continue;
+                }
+                CDX_LOGE("<%s,%d>select err(%d)", __FUNCTION__, __LINE__, ioErr);
+                return -1;
+            }
+            else if (ret == 0)
+            {
+                i++;
+                CDX_LOGE("select timeout retry %ld", i);
+                continue;
+            }
         }
     }
-
+    CDX_LOGE("SSL_connect timeout is %ld", timeoutUs);
     return -1;
 }
 cdx_ssize CdxSSLNoblockRecv(SSL *ssl, void *buf, cdx_size len)
@@ -248,90 +317,81 @@ cdx_ssize CdxSSLRecv(cdx_int32 sockfd, SSL *ssl, void *buf, cdx_size len,
         loopTimes = timeoutUs/CDX_SELECT_TIMEOUT;
     }
 
-    for (i = 0; i < loopTimes; i++)
+	i = 0;
+	while(1)
     {
-        if (pForceStop && *pForceStop)
-        {
-            CDX_LOGE("<%s,%d>force stop", __FUNCTION__, __LINE__);
-            return recvSize>0 ? recvSize : -2;
-        }
+		//read
+		if (pForceStop && *pForceStop)
+		{
+			CDX_LOGE("<%s,%d>force stop.recvSize(%ld)", __FUNCTION__, __LINE__, recvSize);
+			return recvSize>0 ? recvSize : -2;
+		}
+		ret = SSL_read(ssl, ((char *)buf) + recvSize, len - recvSize);
+		//CDX_LOGD("SSL_read ret = %ld",ret);
+		if(ret > 0){
+			recvSize += ret;
+			if ((cdx_size)recvSize == len)
+			{
+				//CDX_LOGD("recv success:recvSize = %ld",recvSize);
+				return recvSize;
+			}
+			continue;
+		}
 
-        FD_ZERO(&rs);
-        FD_SET(sockfd, &rs);
-        FD_ZERO(&errs);
-        FD_SET(sockfd, &errs);
-        tv.tv_sec = 0;
-        tv.tv_usec = CDX_SELECT_TIMEOUT;
-        ret = select(sockfd + 1, &rs, NULL, &errs, &tv);
-        if (ret < 0)
-        {
-            ioErr = errno;
-            if (EINTR == ioErr)
-            {
-                continue;
-            }
-            CDX_LOGE("<%s,%d>select err(%d)", __FUNCTION__, __LINE__, ioErr);
-            return -1;
-        }
-        else if (ret == 0)
-        {
-            //("timeout\n");
-            //CDX_LOGV("xxx timeout, select again...");
-            continue;
-        }
-
-        while (1)
-        {
-            if (pForceStop && *pForceStop)
-            {
-                CDX_LOGE("<%s,%d>force stop.recvSize(%ld)", __FUNCTION__, __LINE__, recvSize);
-                return recvSize>0 ? recvSize : -2;
-            }
-            if(FD_ISSET(sockfd,&errs))
-            {
-                CDX_LOGE("<%s,%d>errs ", __FUNCTION__, __LINE__);
-                break;
-            }
-            if(!FD_ISSET(sockfd, &rs))
-            {
-                CDX_LOGV("select > 0, but sockfd is not ready?");
-                break;
-            }
-
-            ret = SSL_read(ssl, ((char *)buf) + recvSize, len - recvSize);
-            if (ret < 0)
-            {
-                ret = SSL_get_error(ssl, ret);
-                if(ret == SSL_ERROR_WANT_READ)
-                {
-                    break;
-                }
-                else
-                {
-                    CDX_LOGE("ret(%ld), read error, %s", ret,
-                        ERR_error_string(ERR_get_error(), NULL));
-                    ERR_print_errors_fp(stderr);
-                    return -1;
-                }
-            }
-            else if (ret == 0)//socket is close by peer?
-            {
-                CDX_LOGD("xxx recvSize(%ld),sockfd(%d), want to read(%lu), errno(%d),"
-                    " shut down by peer?", recvSize, sockfd, len, errno);
-                return recvSize;
-            }
-            else // ret > 0
-            {
-                recvSize += ret;
-                if ((cdx_size)recvSize == len)
-                {
-                    return recvSize;
-                }
-            }
-        }
-
-    }
-
+		int write_select = 0, read_select = 0, closed = 0;
+		ret = handle_ssl_error(ssl, (int)ret, &write_select, &read_select, &closed);
+		//CDX_LOGD("handle_ssl_error ret = %ld",ret);
+		if(ret < 0) {
+			CDX_LOGE("xxx ret(%ld), %s", ret, ERR_error_string(ERR_get_error(), NULL));
+			return -1;
+		}else{
+			if(read_select == 1)
+			{
+				while(i < loopTimes){
+					//select
+					if (pForceStop && *pForceStop)
+					{
+						CDX_LOGE("<%s,%d>force stop.recvSize(%ld)", __FUNCTION__, __LINE__, recvSize);
+						return recvSize>0 ? recvSize : -2;
+					}
+					FD_ZERO(&rs);
+					FD_SET(sockfd, &rs);
+					FD_ZERO(&errs);
+					FD_SET(sockfd, &errs);
+					tv.tv_sec = 0;
+					tv.tv_usec = CDX_SELECT_TIMEOUT;
+					ret = select(sockfd + 1, &rs, NULL, &errs, &tv);
+					if (ret < 0)
+					{
+						ioErr = errno;
+						if (EINTR == ioErr)
+						{
+							continue;
+						}
+						CDX_LOGE("<%s,%d>select err(%d)", __FUNCTION__, __LINE__, ioErr);
+						return -1;
+					}
+					else if (ret == 0)
+					{
+						CDX_LOGD("xxx timeout, select again...,i = %ld",i);
+						i++;
+						continue;
+					}else if(ret > 0){
+						break;
+					}
+				}
+			}else if(closed == 1){
+				CDX_LOGD("todo	xxx sockfd(%d), errno(%s),"
+					" shut down by peer?",sockfd, strerror(errno));
+				return 0;
+			}else{
+				CDX_LOGE("ret(%ld), read error, %s", ret,
+			ERR_error_string(ERR_get_error(), NULL));
+		return -1;
+			}
+		}
+	}
+    CDX_LOGE("SSL_read timeout is %ld", timeoutUs);
     return recvSize;
 }
 cdx_ssize CdxSSLSend(cdx_int32 sockfd, SSL *ssl, const void *buf, cdx_size len,
@@ -540,7 +600,6 @@ __exit0:
         CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
         CdxSSLStreamDecRef(stream);
         pthread_mutex_unlock(&impl->stateLock);
-        pthread_cond_signal(&impl->stateCond);
 
         return ret;
     }
@@ -587,7 +646,6 @@ __exit1:
     CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
     CdxSSLStreamDecRef(stream);
     pthread_mutex_unlock(&impl->stateLock);
-    pthread_cond_signal(&impl->stateCond);
 
     return recvSize;
 }
@@ -639,7 +697,6 @@ static cdx_int32 __CdxSSLStreamWrite(CdxStreamT *stream, void *buf, cdx_uint32 l
     CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
     CdxSSLStreamDecRef(stream);
     pthread_mutex_unlock(&impl->stateLock);
-    pthread_cond_signal(&impl->stateCond);
 
     return (size == len) ? 0 : -1;
 
@@ -654,11 +711,11 @@ static cdx_int32 CdxSSLStreamForceStop(CdxStreamT *stream)
 
     CDX_LOGV("begin SSL force stop");
     pthread_mutex_lock(&impl->stateLock);
-    if((ref = CdxAtomicRead(&impl->state)) == SSL_STREAM_FORCESTOPPED)
-    {
-        pthread_mutex_unlock(&impl->stateLock);
-        return 0;
-    }
+    //if((ref = CdxAtomicRead(&impl->state)) == SSL_STREAM_FORCESTOPPED)
+    //{
+    //    pthread_mutex_unlock(&impl->stateLock);
+    //    return 0;
+    //}
     CdxAtomicInc(&impl->ref);
     impl->forceStopFlag = 1;
     pthread_mutex_unlock(&impl->stateLock);
@@ -669,7 +726,7 @@ static cdx_int32 CdxSSLStreamForceStop(CdxStreamT *stream)
         usleep(10*1000);
     }
     pthread_mutex_lock(&impl->stateLock);
-    CdxAtomicSet(&impl->state, SSL_STREAM_FORCESTOPPED);
+    //CdxAtomicSet(&impl->state, SSL_STREAM_FORCESTOPPED);
     pthread_mutex_unlock(&impl->stateLock);
     CdxSSLStreamDecRef(stream);
     CDX_LOGV("finish SSL force stop");
@@ -757,7 +814,7 @@ static cdx_void CdxSSLStreamDecRef(CdxStreamT *stream)
         if(impl->ssl)
         {
             SSL_shutdown(impl->ssl);
-            impl->ssl = NULL;
+            //impl->ssl = NULL;
         }
         SSL_FREE(impl);
         ERR_free_strings();
@@ -768,52 +825,88 @@ static cdx_void CdxSSLStreamDecRef(CdxStreamT *stream)
     return ;
 }
 
-static void *StartSSLStreamThread(void *pArg)
+static void DnsResponeHook(void *userhdr, int ret, struct addrinfo *ai)
+{
+    CdxSSLStreamImplT *impl = (CdxSSLStreamImplT *)userhdr;
+
+    if (ret == SDS_OK)
+    {
+        impl->dnsAI = ai;
+		CDX_LOGD("%x%x%x", ai->ai_addr->sa_data[0], ai->ai_addr->sa_data[1], ai->ai_addr->sa_data[2]);
+    }
+
+    impl->dnsRet = ret;
+    pthread_mutex_lock(&impl->dnsMutex);
+    pthread_cond_signal(&impl->dnsCond);
+    pthread_mutex_unlock(&impl->dnsMutex);
+
+    return ;
+}
+
+static int StartSSLStreamConnect(CdxSSLStreamImplT *pArg)
 {
     CdxSSLStreamImplT *impl;
     //struct sockaddr_in addr;
     cdx_int32 ret;
     int64_t start, end;
-    struct addrinfo *res, hints, *retAddr;
-    cdx_char tempPort[10] = {0};
-    //cdx_char ipbuf[100];
-    //struct sockaddr_in *addrIn;
+    struct addrinfo *ai = NULL;
 
-    pthread_detach(pthread_self());
 
     start = GetNowUs();
 
-    impl = (CdxSSLStreamImplT *)pArg;
+    impl = pArg;
     CDX_FORCE_CHECK(impl);
 
-    CdxAtomicInc(&impl->ref);
+    impl->dnsRet = SDSRequest(impl->hostname, impl->port, &ai, impl, DnsResponeHook);
 
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    //hints.ai_flags = AI_CANONNAME; //canonical name
-
-    sprintf(tempPort, "%d", impl->port);
-    memset(&hints, 0, sizeof(struct addrinfo));
-
-    ret = getaddrinfo(impl->hostname, tempPort, &hints, &retAddr);
-    if(ret != 0)
+    if (impl->dnsRet == SDS_OK)
     {
-        CDX_LOGE("get host failed, host:%s, port:%s, err:%s",
-            impl->hostname, tempPort, gai_strerror(ret));
+
+        CDX_FORCE_CHECK(ai);
+    }
+    else if (impl->dnsRet == SDS_PENDING)
+    {
+        while (1)
+        {
+            struct timespec abstime;
+
+            abstime.tv_sec = time(0);
+            abstime.tv_nsec = 100000000L;
+
+            pthread_mutex_lock(&impl->dnsMutex);
+            pthread_cond_timedwait(&impl->dnsCond, &impl->dnsMutex, &abstime); /* wait 100 ms */
+            pthread_mutex_unlock(&impl->dnsMutex);
+
+            if (impl->forceStopFlag)
+            {
+                ai = NULL;
+                break;
+            }
+
+            if (impl->dnsRet == SDS_OK)
+            {
+                ai = impl->dnsAI;
+                break;
+            }
+            else if (impl->dnsRet != SDS_PENDING)
+            {
+                ai = NULL;
+                break;
+            }
+
+        }
+
+     }
+
+    if (ai == NULL)
+    {
         goto err_out;
     }
 
-    //for (cur = retAddr; cur != NULL; cur = cur->ai_next)//print ip for test.
-    //{
-    //    addrIn = (struct sockaddr_in *)cur->ai_addr;
-    //    CDX_LOGV("xxx ip:  %s\n", inet_ntop(AF_INET, &addrIn->sin_addr, ipbuf, 100));
-    //}
+     do
+     {
+        ret = CdxSockAsynConnect(impl->sockFd, ai->ai_addr, ai->ai_addrlen, 0, &impl->forceStopFlag);
 
-    res = retAddr;
-    do
-    {
-        ret = CdxSockAsynConnect(impl->sockFd, res->ai_addr,
-            res->ai_addrlen, 0, &impl->forceStopFlag);
         if(ret == 0)
         {
             break;
@@ -821,21 +914,17 @@ static void *StartSSLStreamThread(void *pArg)
         else if(ret < 0)
         {
             CDX_LOGE("connect failed. error(%d): %s.", errno, strerror(errno));
-            freeaddrinfo(retAddr);
             goto err_out;
         }
 
         if(impl->forceStopFlag == 1)
         {
             CDX_LOGV("force stop connect.");
-            freeaddrinfo(retAddr);
             goto err_out;
         }
-    }while((res = res->ai_next) != NULL);
+    } while ((ai = ai->ai_next) != NULL);
 
-    freeaddrinfo(retAddr);
-
-    if(res == NULL)
+    if (ai == NULL)
     {
         CDX_LOGE("connect failed.");
         goto err_out;
@@ -870,35 +959,21 @@ static void *StartSSLStreamThread(void *pArg)
         ERR_print_errors_fp(stderr);
         goto err_out;
     }
-    CdxSockSetBlocking(impl->sockFd, 1);// set socket to blocking
+    //CdxSockSetBlocking(impl->sockFd, 1);// set socket to blocking
 
-    ret = CdxSSLConnect(impl->sockFd,impl->ssl, 0, &impl->forceStopFlag);
+    ret = CdxSSLConnect(impl->sockFd,impl->ssl, 10*1000*1000/*10s*/, &impl->forceStopFlag);
     if(ret < 0)
     {
         CDX_LOGE("ssl connect failed.");
         goto err_out;
     }
-  //  CdxSockSetBlocking(impl->sockFd, 0);//
-    pthread_mutex_lock(&impl->stateLock);
-    impl->ioState = CDX_IO_STATE_OK;
-    CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
-      pthread_cond_signal(&impl->stateCond);
-    pthread_mutex_unlock(&impl->stateLock);
-    CdxSSLStreamDecRef(&impl->base);
-    return NULL;
+    return 0;
 
 err_out:
     end = GetNowUs();
     //CDX_LOGV("Start tcp time(%lld)", end-start);
-    SSL_FREE(impl);
-    ERR_free_strings();
-    pthread_mutex_lock(&impl->stateLock);
-    impl->ioState = CDX_IO_STATE_ERROR;
-    CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
-    pthread_cond_signal(&impl->stateCond);
-    pthread_mutex_unlock(&impl->stateLock);
-    CdxSSLStreamDecRef(&impl->base);
-    return NULL;
+
+    return -1;
 }
 
 static cdx_int32 __CdxSSLStreamConnect(CdxStreamT *stream)
@@ -919,29 +994,25 @@ static cdx_int32 __CdxSSLStreamConnect(CdxStreamT *stream)
     CdxAtomicInc(&impl->ref);
     pthread_mutex_unlock(&impl->stateLock);
 
-    result = pthread_create(&impl->threadId, NULL, StartSSLStreamThread, (void *)impl);
-    if (result || !impl->threadId)
+    result = StartSSLStreamConnect(impl);
+    if (result < 0)
     {
-        CDX_LOGE("create thread error!");
+        CDX_LOGE("StartTcpStreamConnect failed!");
+        pthread_mutex_lock(&impl->stateLock);
         impl->ioState = CDX_IO_STATE_ERROR;
-        goto __exit;
+        pthread_mutex_unlock(&impl->stateLock);
     }
-
-    pthread_mutex_lock(&impl->stateLock);
-    while(impl->ioState != CDX_IO_STATE_OK
-        && impl->ioState != CDX_IO_STATE_EOS
-        && impl->ioState != CDX_IO_STATE_ERROR)
+    else
     {
-        pthread_cond_wait(&impl->stateCond, &impl->stateLock);
+        pthread_mutex_lock(&impl->stateLock);
+        impl->ioState = CDX_IO_STATE_OK;
+        pthread_mutex_unlock(&impl->stateLock);
     }
-    pthread_mutex_unlock(&impl->stateLock);
 
-__exit:
     pthread_mutex_lock(&impl->stateLock);
     CdxAtomicSet(&impl->state, SSL_STREAM_IDLE);
     CdxSSLStreamDecRef(&impl->base);
     pthread_mutex_unlock(&impl->stateLock);
-    pthread_cond_signal(&impl->stateCond);
     return (impl->ioState == CDX_IO_STATE_ERROR) ? -1 : 0;
 
 }
@@ -987,6 +1058,10 @@ static CdxStreamT *__CdxSSLStreamCreate(CdxDataSourceT *source)
     //CDX_LOGV("port (%d), hostname(%s)", impl->port, impl->hostname);
     CdxAtomicSet(&impl->ref, 1);
     pthread_mutex_init(&impl->stateLock, NULL);
+
+    pthread_mutex_init(&impl->dnsMutex, NULL);
+    pthread_cond_init(&impl->dnsCond, NULL);
+    impl->dnsRet = -1;
 
     return &impl->base;
 

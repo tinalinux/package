@@ -40,13 +40,13 @@
 #endif
 #define EL(x,y...)	{fprintf(stderr, "%s: "x"\n", DEVICE_NAME, ##y);}
 
-static snd_pcm_t *alsa_handle = NULL;
-static snd_pcm_hw_params_t *alsa_params = NULL;
+//static snd_pcm_t *alsa_handle = NULL;
+//static snd_pcm_hw_params_t *alsa_params = NULL;
 
 //static char *alsa_out_dev = "default";
 static char *alsa_out_dev = "plug:dmix";
 
-static void stop(void);
+static void stop(ao_device_t *device);
 
 static int bits2format(int bits)
 {
@@ -58,18 +58,22 @@ static int bits2format(int bits)
 	return -1;
 }
 
-static int init(int argc, char **argv)
+static int init(ao_device_t *device)
 {
 	return 0;
 }
 
-static void deinit(void)
+static void deinit(ao_device_t *device)
 {
-	stop();
+	stop(device);
 }
 
-static int start(ao_format_t *fmt)
+static int start(ao_device_t *device)
 {
+	ao_format_t *fmt = &(device->fmt);
+	snd_pcm_t *alsa_handle = NULL;
+	snd_pcm_hw_params_t *alsa_params = NULL;
+
 	unsigned int buffer_time = 128000; /* 128ms, Unit: us */
 	unsigned int period_time = 8000; /* 8ms, Unit: us */
 
@@ -142,7 +146,7 @@ static int start(ao_format_t *fmt)
 		EL("unable to set hw parameters: %s\n", snd_strerror(ret));
 		goto err_pcm_hw;
 	}
-
+	device->handler = (void*)alsa_handle;
 	return 0;
 
 err_pcm_hw:
@@ -185,11 +189,15 @@ static int xrun_recovery(snd_pcm_t *handle, int err)
  * @buf:
  * @samples
  */
-static void play(short buf[], int samples)
+static void play(ao_device_t *device, short buf[], int samples)
 {
+	snd_pcm_t *alsa_handle = (snd_pcm_t *)(device->handler);
+
 	signed short *ptr = buf;
 	int len = samples;
 	int err;
+
+	//do about sw-gain
 
 	while (len > 0) {
 		err = snd_pcm_writei(alsa_handle, ptr, len);
@@ -214,18 +222,25 @@ static void play(short buf[], int samples)
 	}
 }
 
-static void stop(void)
+static void stop(ao_device_t *device)
 {
+	snd_pcm_t *alsa_handle = (snd_pcm_t *)(device->handler);
+
 	if (alsa_handle) {
 		snd_pcm_drain(alsa_handle);
 		snd_pcm_close(alsa_handle);
-		alsa_handle = NULL;
+		device->handler = NULL;
 	}
 }
 
 static void help(void)
 {
 	EL("There are no options for oss audio.\n");
+}
+
+static void volume(ao_device_t *device, int vol)
+{
+
 }
 
 audio_output_t audio_alsa = {

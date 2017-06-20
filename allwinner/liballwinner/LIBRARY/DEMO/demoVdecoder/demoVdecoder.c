@@ -767,16 +767,14 @@ void *DRAMcostTHread(void *arg)
 #define MEMORY_SIZE (MEMORY_BLOCK*MEMORY_NUM)
 
 	DecDemo *pDec;
-	VideoDecoder *pVideoDec;
 	//int bExitFlag = 0;
 	int i, j;
-	int times, state;
+	int state;
 	char *pSrc, *pDst, *p;
 
 	pSrc = NULL;
 	pDst = NULL;
 	pDec = (DecDemo *)arg;
-	pVideoDec = pDec->pVideoDec;
 
 	pSrc = (char *)malloc(MEMORY_SIZE);
 	if(pSrc == NULL)
@@ -791,7 +789,6 @@ void *DRAMcostTHread(void *arg)
 		goto DRAM_cost_exit;
 	}
 	logd(" DRAM memory copy thread created .... ");
-	times = 0;
 	while(1)
 	{
 		char *s, *d;
@@ -851,6 +848,7 @@ int main(int argc, char** argv)
 	pthread_t dram[DRAM_COST_MAX_THREAD_NUM];
 	DecDemo  Decoder;
 	long long endTime;
+    AddVDPlugin();
 
 	DemoHelpInfo();
 

@@ -69,15 +69,10 @@ STRIP = aarch64-openwrt-linux-musl-strip
 AR    = aarch64-openwrt-linux-musl-ar
 endif
 
-ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI310))
-CFLAGS  =-Os -pipe -march=armv7-a -mtune=cortex-a7 -mfpu=neon -fno-caller-saves \
-			-fno-plt -fhonour-copts -Wno-error=unused-but-set-variable \
-			-Wno-error=unused-result -mfloat-abi=hard \
-			 -Wformat -Werror=format-security -fstack-protector -D_FORTIFY_SOURCE=1 \
-			 -Wl,-z,now -Wl,-z,relro
-CC    = arm-openwrt-linux-muslgnueabi-gcc
-LD    = arm-openwrt-linux-muslgnueabi-gcc
-CPP   = arm-openwrt-linux-muslgnueabi-g++
-STRIP = arm-openwrt-linux-muslgnueabi-strip
-AR    = arm-openwrt-linux-muslgnueabi-ar
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+CC    = arm-buildroot-linux-uclibcgnueabi-gcc
+LD    = arm-buildroot-linux-uclibcgnueabi-gcc
+CPP   = arm-buildroot-linux-uclibcgnueabi-g++
+STRIP = arm-buildroot-linux-uclibcgnueabi-strip
+AR    = arm-buildroot-linux-uclibcgnueabi-ar
 endif

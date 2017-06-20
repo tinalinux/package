@@ -10,6 +10,11 @@ if not aiosconf then
         serial    = "test/res/aios-aihome.serial",
         userId    = "soundbox",
         ailog_level = 3,
+
+        --cloudServer = "ws://112.80.39.95:8009"
+        cloudServer = "ws://58.210.96.236:8888"
+        --cloudServer = "ws://s-test.api.aispeech.com:10000"
+        --cloudServer = "ws://172.16.10.119:80"
     }
 end
 

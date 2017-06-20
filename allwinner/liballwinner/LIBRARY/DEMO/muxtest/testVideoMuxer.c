@@ -49,6 +49,7 @@ typedef struct
 	int maxKeyFrame;
 
 	unsigned char write_unmux;
+	unsigned char write_mux;
 	int muxer_type;
 	long play_length;
 }encode_param_t;
@@ -265,6 +266,7 @@ void demoParseArgument(encode_param_t *encode_param, char *argument, char *value
         }
         case MP4:
         {
+            encode_param->write_mux = 1;
             memset(encode_param->stream_file, 0, sizeof(encode_param->stream_file));
 		    sscanf(value, "%255s", encode_param->stream_file);
 		    logd(" get mp4 file: %s ", encode_param->stream_file);
@@ -273,6 +275,7 @@ void demoParseArgument(encode_param_t *encode_param, char *argument, char *value
         }
         case TS:
         {
+            encode_param->write_mux = 1;
             memset(encode_param->stream_file, 0, sizeof(encode_param->stream_file));
 		    sscanf(value, "%255s", encode_param->stream_file);
 		    logd(" get ts file: %s ", encode_param->stream_file);
@@ -359,7 +362,6 @@ int main(int argc, char** argv)
 	strcpy((char*)encode_param.intput_file,		"/mnt/sdcard/DCIM/Camera/720p.yuv");
 	strcpy((char*)encode_param.output_file,		"/mnt/sdcard/DCIM/Camera/720p.264");
 	strcpy((char*)encode_param.stream_file,		"write:///mnt/sdcard/DCIM/Camera/720p_h264.mp4");
-
 
 	//parse the config paramter
 	if(argc >= 2)
@@ -465,52 +467,55 @@ int main(int argc, char** argv)
 	/******************************* Set JPEG Parameters ****************************/
 
 	/******************************* Set Muxer Parameters ****************************/
-	memset(&media_info, 0, sizeof(CdxMuxerMediaInfoT));
-    media_info.audioNum = 0;
-    media_info.videoNum = 1;
-    media_info.video.nWidth = encode_param.dst_width;
-    media_info.video.nHeight = encode_param.dst_height;
-    media_info.video.nFrameRate = encode_param.frame_rate;
-    media_info.video.eCodeType = encode_param.encode_format;
-    if ((writer = CdxWriterCreat()) == NULL)
+    if (encode_param.write_mux)
     {
-        loge("writer creat failed\n");
-        fclose(in_file);
-        fclose(out_file);
-        return -1;
-    }
-    mw = (MuxerWriterT*)writer;
-    strcpy(mw->file_path, stream_path);
-    mw->file_mode = FD_FILE_MODE;
-    MWOpen(writer);
-    mux = CdxMuxerCreate(encode_param.muxer_type, writer);
-    CdxMuxerSetMediaInfo(mux, &media_info);
+	    memset(&media_info, 0, sizeof(CdxMuxerMediaInfoT));
+        media_info.audioNum = 0;
+        media_info.videoNum = 1;
+        media_info.video.nWidth = encode_param.dst_width;
+        media_info.video.nHeight = encode_param.dst_height;
+        media_info.video.nFrameRate = encode_param.frame_rate;
+        media_info.video.eCodeType = encode_param.encode_format;
+        if ((writer = CdxWriterCreat()) == NULL)
+        {
+            loge("writer creat failed\n");
+            fclose(in_file);
+            fclose(out_file);
+            return -1;
+        }
+        mw = (MuxerWriterT*)writer;
+        strcpy(mw->file_path, stream_path);
+        mw->file_mode = FD_FILE_MODE;
+        MWOpen(writer);
+        mux = CdxMuxerCreate(encode_param.muxer_type, writer);
+        CdxMuxerSetMediaInfo(mux, &media_info);
 
 #if FS_WRITER
-    memset(&fs_cache_mem, 0, sizeof(CdxFsCacheMemInfo));
-    /*
-    fs_cache_mem.m_cache_size = 512 * 1024; // must be less than 512 * 1024
-    fs_cache_mem.mp_cache = (cdx_int8*)malloc(fs_cache_mem.m_cache_size);
-    if (fs_cache_mem.mp_cache == NULL)
-    {
-        loge("fs_cache_mem.mp_cache malloc failed\n");
-        fclose(in_file);
-        fclose(out_file);
-        return -1;
-    }
-    CdxMuxerControl(mux, SET_CACHE_MEM, &fs_cache_mem);
-    fs_mode = FSWRITEMODE_CACHETHREAD;
-    */
+        memset(&fs_cache_mem, 0, sizeof(CdxFsCacheMemInfo));
+        /*
+        fs_cache_mem.m_cache_size = 512 * 1024; // must be less than 512 * 1024
+        fs_cache_mem.mp_cache = (cdx_int8*)malloc(fs_cache_mem.m_cache_size);
+        if (fs_cache_mem.mp_cache == NULL)
+        {
+            loge("fs_cache_mem.mp_cache malloc failed\n");
+            fclose(in_file);
+            fclose(out_file);
+            return -1;
+        }
+        CdxMuxerControl(mux, SET_CACHE_MEM, &fs_cache_mem);
+        fs_mode = FSWRITEMODE_CACHETHREAD;
+        */
 
-    fs_cache_size = 1024 * 1024;
-    CdxMuxerControl(mux, SET_FS_SIMPLE_CACHE_SIZE, &fs_cache_size);
-    fs_mode = FSWRITEMODE_SIMPLECACHE;
+        fs_cache_size = 512 * 1024;
+        CdxMuxerControl(mux, SET_FS_SIMPLE_CACHE_SIZE, &fs_cache_size);
+        fs_mode = FSWRITEMODE_SIMPLECACHE;
 
-    //fs_mode = FSWRITEMODE_DIRECT;
-    CdxMuxerControl(mux, SET_FS_WRITE_MODE, &fs_mode);
+        //fs_mode = FSWRITEMODE_DIRECT;
+        CdxMuxerControl(mux, SET_FS_WRITE_MODE, &fs_mode);
 #endif
-    //CdxMuxerControl(mux, SET_PLAY_TIME_LENGTH, &encode_param.play_length);
-    CdxMuxerWriteHeader(mux);
+
+        CdxMuxerWriteHeader(mux);
+    }
 	/******************************* Set Muxer Parameters ****************************/
 
 	pVideoEnc = VideoEncCreate(encode_param.encode_format);
@@ -532,7 +537,10 @@ int main(int argc, char** argv)
 	if(encode_param.encode_format == VENC_CODEC_H264)
 	{
 		VideoEncGetParameter(pVideoEnc, VENC_IndexParamH264SPSPPS, &sps_pps_data);
-		CdxMuxerWriteExtraData(mux, sps_pps_data.pBuffer, sps_pps_data.nLength, 0);
+		if (encode_param.write_mux)
+		{
+		    CdxMuxerWriteExtraData(mux, sps_pps_data.pBuffer, sps_pps_data.nLength, 0);
+		}
         if (encode_param.write_unmux)
         {
             fwrite(sps_pps_data.pBuffer, 1, sps_pps_data.nLength, out_file);
@@ -562,9 +570,6 @@ int main(int argc, char** argv)
     total_time1 = GetNowUs();
 	while(testNumber < encode_param.encode_frame_num)
 	{
-	    CdxMuxerPacketT pkt;
-		memset(&pkt, 0, sizeof(CdxMuxerPacketT));
-
 		GetOneAllocInputBuffer(pVideoEnc, &inputBuffer);
 		{
 			unsigned int size1, size2;
@@ -614,35 +619,40 @@ int main(int argc, char** argv)
 		}
 
 		/*************************** Write Packet **********************************/
-		pkt.buflen = outputBuffer.nSize0 + outputBuffer.nSize1;
-        if ((pkt.buf = (char*)malloc(pkt.buflen)) == NULL)
-        {
-            loge("pkt.buf malloc failed in No. %d frame\n", testNumber);
-            break;
-        }
-        memcpy(pkt.buf, outputBuffer.pData0, outputBuffer.nSize0);
+		if (encode_param.write_mux)
+		{
+		    CdxMuxerPacketT pkt;
+		    memset(&pkt, 0, sizeof(CdxMuxerPacketT));
+		    pkt.buflen = outputBuffer.nSize0 + outputBuffer.nSize1;
+            if ((pkt.buf = (char*)malloc(pkt.buflen)) == NULL)
+            {
+                loge("pkt.buf malloc failed in No. %d frame\n", testNumber);
+                break;
+            }
+            memcpy(pkt.buf, outputBuffer.pData0, outputBuffer.nSize0);
 
-        if (outputBuffer.nSize1 > 0)
-        {
-            memcpy((char*)pkt.buf + outputBuffer.nSize0, outputBuffer.pData1, outputBuffer.nSize1);
-        }
-        pkt.pts = outputBuffer.nPts / 1000; // us should be change to ms
-        pkt.duration = 1.0/ media_info.video.nFrameRate * 1000;
-        pkt.type = 0;
-        pkt.streamIndex = 0;
+            if (outputBuffer.nSize1 > 0)
+            {
+                memcpy((char*)pkt.buf + outputBuffer.nSize0, outputBuffer.pData1, outputBuffer.nSize1);
+            }
+            pkt.pts = outputBuffer.nPts / 1000; // us should be change to ms
+            pkt.duration = 1.0/ media_info.video.nFrameRate * 1000;
+            pkt.type = 0;
+            pkt.streamIndex = 0;
 
-        mux_time1 = GetNowUs();
-        result = CdxMuxerWritePacket(mux, &pkt);
-        mux_time2 = GetNowUs();
-        mux_time3 += mux_time2 - mux_time1;
+            mux_time1 = GetNowUs();
+            result = CdxMuxerWritePacket(mux, &pkt);
+            mux_time2 = GetNowUs();
+            mux_time3 += mux_time2 - mux_time1;
 
-        if (result)
-        {
-            loge("CdxMuxerWritePacket() failed in No. %d frame\n", testNumber);
-            break;
+            if (result)
+            {
+                loge("CdxMuxerWritePacket() failed in No. %d frame\n", testNumber);
+                break;
+            }
+            free(pkt.buf);
+            pkt.buf = NULL;
         }
-        free(pkt.buf);
-        pkt.buf = NULL;
 		/*************************** Write Packet **********************************/
        if (encode_param.write_unmux)
        {
@@ -670,16 +680,20 @@ int main(int argc, char** argv)
 
 		testNumber++;
 	}
-	total_time2 = GetNowUs();
-	total_time3 += total_time2 - total_time1;
-    result = CdxMuxerWriteTrailer(mux);
-    if (result)
+
+    if (encode_param.write_mux)
     {
-        loge("CdxMuxerWriteTrailer() failed\n");
+	    total_time2 = GetNowUs();
+	    total_time3 += total_time2 - total_time1;
+        result = CdxMuxerWriteTrailer(mux);
+        if (result)
+        {
+            loge("CdxMuxerWriteTrailer() failed\n");
+        }
+	    printf("the average encode time is %lldus...\n",time3/testNumber);
+	    printf("the average mux time is %lldus...\n",mux_time3/testNumber);
+	    printf("the average toatal time is %lldus...\n",total_time3/testNumber);
     }
-	printf("the average encode time is %lldus...\n",time3/testNumber);
-	printf("the average mux time is %lldus...\n",mux_time3/testNumber);
-	printf("the average toatal time is %lldus...\n",total_time3/testNumber);
 
 out:
 	printf("output file is saved: %s\n", (encode_param.stream_file + 8));
@@ -705,23 +719,27 @@ out:
 	VideoEncDestroy(pVideoEnc);
 	pVideoEnc = NULL;
 
-	CdxMuxerClose(mux);
-
-    if (writer)
+    if (encode_param.write_mux)
     {
-        MWClose(writer);
-        CdxWriterDestroy(writer);
-        writer = NULL;
-        mw = NULL;
-    }
+	    CdxMuxerClose(mux);
+
+        if (writer)
+        {
+            MWClose(writer);
+            CdxWriterDestroy(writer);
+            writer = NULL;
+            mw = NULL;
+        }
 
 #if FS_WRITER
-    if (fs_cache_mem.mp_cache)
-	{
-	    free(fs_cache_mem.mp_cache);
-	    fs_cache_mem.mp_cache = NULL;
-	}
+        if (fs_cache_mem.mp_cache)
+	    {
+	        free(fs_cache_mem.mp_cache);
+	        fs_cache_mem.mp_cache = NULL;
+	    }
 #endif
+    }
+
     if(baseConfig.memops)
     {
         CdcMemClose(baseConfig.memops);

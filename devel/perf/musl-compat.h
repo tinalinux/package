@@ -9,12 +9,6 @@
 #include <stdio.h>
 #include <sched.h>
 
-#undef _IOWR
-#undef _IOR
-#undef _IOW
-#undef _IOC
-#undef _IO
-
 #define _SC_LEVEL1_DCACHE_LINESIZE -1
 
 static inline long sysconf_wrap(int name)

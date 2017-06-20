@@ -22,6 +22,8 @@
 const int kMaxReadBytes     = 1024;
 const int kMaxBytesChecked  = 128 * 1024;
 
+#define SYNCFRMNUM 40
+
 #define FFMIN(a,b) ((a) > (b) ? (b) : (a))
 #define FFMAX(a,b) ((a) > (b) ? (a) : (b))
 
@@ -174,7 +176,7 @@ static cdx_int32 Resync(CdxStreamProbeDataT *p){
         cdx_int64 test_pos = pos + frame_size;
         valid = 1;
         cdx_int32 j = 0;
-        for (j = 0; j < 3; ++j) {
+        for (j = 0; j < 2; ++j) {
             cdx_uint8 tmp[4];
             if(test_pos + 4 > p->len)
             {
@@ -557,6 +559,7 @@ static XINGSeeker *CreateXINGSeeker(CdxParserT *parser,  cdx_int64 firstFramePos
     }
 
     XINGSeeker *seeker = (XINGSeeker *)malloc (sizeof(XINGSeeker));
+    memset(seeker, 0x00, sizeof(XINGSeeker));
 
     seeker->mFirstFramePos = firstFramePos;
 
@@ -794,6 +797,8 @@ static VBRISeeker *CreateVBRISeeker(CdxParserT *parser,  cdx_int64 postId3Pos)
     }
 
     seeker = (VBRISeeker *)malloc(sizeof(VBRISeeker));
+    memset(seeker, 0x00, sizeof(VBRISeeker));
+
     seeker->mBasePos = postId3Pos + frameSize;
     // only update mDurationUs if the calculated duration is valid (non zero)
     // otherwise, leave duration at -1 so that getDuration() and getOffsetForTime()
@@ -853,7 +858,11 @@ EXIT:
     return seeker;
 }
 
-static cdx_bool GetVBRIOffsetForTime(VBRISeeker *seeker, int64_t *timeUs, int64_t *pos) {
+static cdx_bool GetVBRIOffsetForTime(MP3ParserImpl *mp3,
+                                     VBRISeeker *seeker,
+                                     int64_t *timeUs,
+                                     int64_t *pos)
+{
     if (seeker == NULL || seeker->mDurationUs < 0) {
         return CDX_FALSE;
     }
@@ -863,6 +872,10 @@ static cdx_bool GetVBRIOffsetForTime(VBRISeeker *seeker, int64_t *timeUs, int64_
     *pos = seeker->mBasePos;
     size_t segmentIndex = 0;
     while (segmentIndex < seeker->mSegmentsize && nowUs < *timeUs) {
+        if(mp3->exitFlag)
+        {
+            return CDX_FALSE;
+        }
         nowUs += segmentDurationUs;
         *pos += seeker->mSegments[segmentIndex];
     }
@@ -889,6 +902,11 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
     if (*inoutPos == 0) {
         for (;;) {
             uint8_t id3header[10];
+            if(mp3->exitFlag)
+            {
+                mp3->mStatus = MP3_STA_IDLE;
+                return CDX_FALSE;
+            }
             if (CdxStreamRead(mp3->stream, id3header, sizeof(id3header))
                         < (cdx_int32)sizeof(id3header)) {
                  return ret;
@@ -926,6 +944,11 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
     cdx_uint8 *tmp = buf;
 
     do {
+        if(mp3->exitFlag)
+        {
+            mp3->mStatus = MP3_STA_IDLE;
+            return CDX_FALSE;
+        }
         if (pos >= *inoutPos + kMaxBytesChecked) {
             // Don't scan forever.
             CDX_LOGV("giving up at offset %lld", pos);
@@ -969,8 +992,8 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
             continue;
         }
 
-        CDX_LOGV("found possible 1st frame at %lld (header = 0x%08x) mFrameSize %d",
-                  pos, header, mFrameSize);
+        CDX_LOGD("found possible 1st frame at %lld (header = 0x%08x) mFrameSize %d, mBitRate : %d",
+                  pos, header, mFrameSize, mBitRate);
 
         // We found what looks like a valid frame,
         // now find its successors.
@@ -978,7 +1001,9 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
 
         valid = CDX_TRUE;
         int j;
-        for (j = 0; j < 3; ++j) {
+        int avgbitrate = mBitRate;
+        int realframes = 0;
+        for (j = 0; j < SYNCFRMNUM - 1; ++j) {
             uint8_t tmp[4];
             uint64_t orioffset = CdxStreamTell(mp3->stream);
             if (CdxStreamSeek(mp3->stream, test_pos, SEEK_SET)) {
@@ -995,27 +1020,36 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
             CDX_LOGV("subsequent header is %08x", test_header);
 
             if ((test_header & kMask) != (header & kMask)) {
+                //if the source only have 3~SYNCFRMNUM frames, it's ok
+                if(realframes >= 2) break;
                 valid = CDX_FALSE;
                 CdxStreamSeek(mp3->stream, orioffset, SEEK_SET);
                 break;
             }
 
             size_t test_frame_size;
+            int testSampleRate, testNumChannels, testBitRate;
             if (!GetMPEGAudioFrameSize(
-                        test_header, &test_frame_size, NULL, NULL, NULL, NULL)) {
+                        test_header, &test_frame_size, &testSampleRate,
+                        &testNumChannels, &testBitRate, NULL)) {
+                CDX_LOGE("111");
                 valid = CDX_FALSE;
                 CdxStreamSeek(mp3->stream, orioffset, SEEK_SET);
                 break;
             }
 
             CDX_LOGV("found subsequent frame #%d at %lld", j + 2, test_pos);
-
+            CDX_LOGD("subsequent test_frame_size(%d), SR(%d), CH(%d), BITR(%d)",
+                    test_frame_size, testSampleRate, testNumChannels, testBitRate);
             test_pos += test_frame_size;
+            avgbitrate += testBitRate;
+            realframes++;
         }
-
+        CDX_LOGD("avgbitrate: %d, realframes: %d",avgbitrate, realframes);
+        avgbitrate /= realframes + 1;
         if (valid) {
             *inoutPos = pos;
-
+            mp3->mavgBitRate = avgbitrate;
             if (outHead != NULL) {
                 *outHead = header;
             }
@@ -1033,7 +1067,10 @@ static cdx_bool Mp3HeadResync(CdxParserT *parser, cdx_uint32 matchHeader, cdx_in
         mp3->mFrameSize  = mFrameSize;
         mp3->mSampleRate = mSampleRate;
         mp3->mChannels   = mNumChannels;
-        mp3->mBitRate    = mBitRate * 1E3;
+        if(mp3->mavgBitRate == 0)
+            mp3->mBitRate = mBitRate * 1E3;
+        else
+            mp3->mBitRate = mp3->mavgBitRate * 1E3;
     }
 
     return valid;
@@ -1071,7 +1108,7 @@ static int CdxMp3Init(CdxParserT* Parameter)
     parser = (CdxParserT *)Parameter;
 
     mp3->mFileSize = CdxStreamSize(mp3->stream);
-
+    mp3->mStatus = MP3_STA_INITING;
     cdx_bool sucess;
     cdx_int64 Pos = 0;
     cdx_int32 Header = 0;
@@ -1111,8 +1148,12 @@ static int CdxMp3Init(CdxParserT* Parameter)
     CdxStreamSeek(mp3->stream,mp3->mFirstFramePos,SEEK_SET);
     mp3->mErrno = PSR_OK;
     pthread_cond_signal(&mp3->cond);
+    mp3->mStatus = MP3_STA_IDLE;
+    CDX_LOGD("mDuration : %lld, mFileSize : %lld, mFirstFramePos : %lld, mBitRate : %d",
+            mp3->mDuration, mp3->mFileSize, mp3->mFirstFramePos, mp3->mBitRate);
     return 0;
 Exit:
+    mp3->mStatus = MP3_STA_IDLE;
     return -1;
 }
 
@@ -1124,7 +1165,7 @@ static int CdxMp3ParserGetMediaInfo(CdxParserT *parser, CdxMediaInfoT *mediaInfo
 
     mp3 = (MP3ParserImpl *)parser;
     mediaInfo->fileSize     = CdxStreamSize(mp3->stream);
-    audio                   = &mediaInfo->program[0].audio[mediaInfo->program[0].audioNum];
+    audio                   = &mediaInfo->program[0].audio[0];
     audio->eCodecFormat     = AUDIO_CODEC_FORMAT_MP3;
     audio->nChannelNum      = mp3->mChannels;
     audio->nSampleRate      = mp3->mSampleRate;
@@ -1192,10 +1233,16 @@ static int CdxMp3ParserControl(CdxParserT *parser, cdx_int32 cmd, void *param)
         case CDX_PSR_CMD_SET_FORCESTOP:
         {
             mp3->mErrno = PSR_USER_CANCEL;
+            mp3->exitFlag = 1;
+            while(mp3->mStatus != MP3_STA_IDLE)
+            {
+                usleep(2000);
+            }
             CdxStreamForceStop(mp3->stream);
             break;
         }
         case CDX_PSR_CMD_CLR_FORCESTOP:
+            mp3->exitFlag = 0;
             CdxStreamClrForceStop(mp3->stream);
             break;
         case CDX_PSR_CMD_GET_CACHESTATE:
@@ -1252,6 +1299,7 @@ static int CdxMp3ParserRead(CdxParserT *parser, CdxPacketT *pkt)
         goto Exit;
     }
 
+    mp3->mStatus = MP3_STA_READING;
     nReadPos = CdxStreamTell(mp3->stream);
 #if 0
     if (nReadPos < mp3->mFileSize) {
@@ -1277,6 +1325,7 @@ static int CdxMp3ParserRead(CdxParserT *parser, CdxPacketT *pkt)
     pkt->length = nRetSize;
     mp3->readPacketSize += nRetSize;
 Exit:
+    mp3->mStatus = MP3_STA_IDLE;
     return ret;
 }
 
@@ -1290,17 +1339,19 @@ static int CdxMp3ParserSeekTo(CdxParserT *parser, cdx_int64 timeUs)
     cdx_int64   mCurrentTimeUs = 0;
     cdx_int64   mBasisTimeUs   = 0;
     mp3 = (MP3ParserImpl *)parser;
+
     if (!mp3) {
         CDX_LOGE("Mp3 file parser seekto failed!");
         ret = -1;
         goto Exit;
     }
 
+    mp3->mStatus = MP3_STA_SEEKING;
     int64_t actualSeekTimeUs = timeUs;
     if ((mp3->mXINGSeeker == NULL ||
        !GetXINGOffsetForTime(mp3->mXINGSeeker, &actualSeekTimeUs, &mp3->mCurrentPos))
         && (mp3->mVBRISeeker == NULL ||
-           !GetVBRIOffsetForTime(mp3->mVBRISeeker, &actualSeekTimeUs,&mp3->mCurrentPos))) {
+           !GetVBRIOffsetForTime(mp3, mp3->mVBRISeeker, &actualSeekTimeUs,&mp3->mCurrentPos))) {
         if (!mp3->mBitRate) {
             CDX_LOGW("no bitrate");
             ret = -1;
@@ -1333,7 +1384,8 @@ static int CdxMp3ParserSeekTo(CdxParserT *parser, cdx_int64 timeUs)
     uint8_t buffer[4] = {0};
     for (;;) {
         if (CdxStreamSeek(mp3->stream, mp3->mCurrentPos, SEEK_SET)) {
-            return -1;
+            ret = -1;
+            goto Exit;
         }
         ssize_t n = CdxStreamRead(mp3->stream, buffer, 4);
         if (n < 4) {
@@ -1385,6 +1437,7 @@ static int CdxMp3ParserSeekTo(CdxParserT *parser, cdx_int64 timeUs)
     mp3->mCurrentPos += mFrameSize;
     CDX_LOGV("mSeekingTime %lld", mp3->mSeekingTime);
 Exit:
+    mp3->mStatus = MP3_STA_IDLE;
     return ret;
 }
 
@@ -1463,6 +1516,7 @@ static int CdxMp3ParserClose(CdxParserT *parser)
 #endif
     if(mp3->stream) {
         CdxStreamClose(mp3->stream);
+		mp3->stream = NULL;
     }
     pthread_cond_destroy(&mp3->cond);
     CdxFree(mp3);
@@ -1493,6 +1547,7 @@ CdxParserT *CdxMp3ParserOpen(CdxStreamT *stream, cdx_uint32 flags)
     if (Mp3ParserImple == NULL) {
         CDX_LOGE("Mp3ParserOpen Failed");
         CdxStreamClose(stream);
+		stream = NULL;
         return NULL;
     }
     memset(Mp3ParserImple, 0, sizeof(MP3ParserImpl));

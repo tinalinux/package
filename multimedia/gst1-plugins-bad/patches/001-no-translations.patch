@@ -1,0 +1,10 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -3841,7 +3841,6 @@
+ ext/zbar/Makefile
+ ext/dtls/Makefile
+ ext/webrtcdsp/Makefile
+-po/Makefile.in
+ docs/Makefile
+ docs/plugins/Makefile
+ docs/libs/Makefile

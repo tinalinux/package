@@ -1,0 +1,9 @@
+## for testcase
+DEPENDS += \
+    +TINATEST_STRESS_IO_ENABLE:stress \
+    +TINATEST_STRESS_DDR_ENABLE:memtester \
+    +TINATEST_BASE_BATTERY_ENABLE:healthd \
+    +TINATEST_STRESS_GPU_ENABLE:opengles_demo \
+    +TINATEST_STRESS_RW_RW_AUTO_ENABLE:rwcheck \
+    +TINATEST_STRESS_RW_RW_LOOP_ENABLE:rwcheck \
+    +TINATEST_STRESS_CPU_ENABLE:stress \

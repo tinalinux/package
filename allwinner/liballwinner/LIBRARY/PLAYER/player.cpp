@@ -133,6 +133,7 @@ Player* PlayerCreate(void)
 {
     PlayerContext* p;
 
+    AddVDPlugin();
     p = (PlayerContext*)malloc(sizeof(PlayerContext));
     if(p == NULL)
     {
@@ -140,8 +141,10 @@ Player* PlayerCreate(void)
         return NULL;
     }
     memset(p, 0, sizeof(*p));
-	p->volume = -1.0;
-
+	//p->volume = -1.0;
+	p->volume = 0.0;
+	p->nTimeOffset = 0;
+	p->nTimeBase = -1;
     p->eStatus = PLAYER_STATUS_STOPPED;
     p->pAvTimer = AvTimerCreate();
     p->onResetNotSync = 0;
@@ -633,7 +636,7 @@ int PlayerStart(Player* pl)
 
     p = (PlayerContext*)pl;
 
-    logi("player start");
+    logd("player start");
 
     if(p->eStatus == PLAYER_STATUS_STARTED)
     {
@@ -692,7 +695,6 @@ int PlayerStart(Player* pl)
 
         //* nTimeBase==-1 means timer will be started at the first pts callback.
         p->nTimeBase               = -1;
-        p->nTimeOffset             = 0;
 
         if(p->pVideoBitrateEstimater)
             BitrateEstimaterReset(p->pVideoBitrateEstimater);
@@ -774,7 +776,8 @@ int PlayerStop(Player* pl)      //* media stream information is still kept by th
 
     p->pAvTimer->Stop(p->pAvTimer);
     p->pAvTimer->SetTime(p->pAvTimer, 0);
-
+	p->nTimeBase = -1;
+	p->nTimeOffset = 0;
     p->bProcessingCommand = 0;
     p->bInFastMode        = 0;
     p->eStatus = PLAYER_STATUS_STOPPED;
@@ -840,7 +843,10 @@ int PlayerReset(Player* pl, int64_t nSeekTimeUs)     //* for seek operation, mut
     int            ret;
 
     p = (PlayerContext*)pl;
-
+	//* nTimeBase==-1 means timer will be started at the first pts callback.
+    p->nTimeBase               = -1;
+	p->nTimeOffset             = nSeekTimeUs;
+	logd("in PlayerReset():p->nTimeOffset = %lld us",p->nTimeOffset);
     if(p->eStatus == PLAYER_STATUS_STOPPED)
     {
         loge("invalid reset operation, should be called under pause status.");
@@ -896,10 +902,6 @@ int PlayerReset(Player* pl, int64_t nSeekTimeUs)     //* for seek operation, mut
     p->bVideoCrash             = 0;
     p->bAudioCrash             = 0;
     p->bSubtitleCrash          = 0;
-
-    //* nTimeBase==-1 means timer will be started at the first pts callback.
-    p->nTimeBase               = -1;
-    p->nTimeOffset             = nSeekTimeUs;
 
     if(p->pVideoBitrateEstimater)
         BitrateEstimaterReset(p->pVideoBitrateEstimater);
@@ -1494,6 +1496,7 @@ int64_t PlayerGetPosition(Player* pl)    //* current time position in us.
         //* current timer value is not valid.
         nCurPosition = p->nTimeOffset;
     }
+	logd("in PlayerGetPosition,nCurPosition = %lld us , p->nTimeBase = %d",nCurPosition,p->nTimeBase);
     return nCurPosition;
 }
 
@@ -3560,7 +3563,7 @@ static int CallbackProcess(void* pSelf, int eMessageId, void* param)
         case PLAYER_VIDEO_RENDER_NOTIFY_VIDEO_FRAME:
             if(p->callback != NULL)
             {
-                logd("===== notify render key frame in fast mode");
+                logv("===== notify render key frame in fast mode");
                 p->callback(p->pUserData, PLAYER_NOTIFY_VIDEO_RENDER_FRAME, NULL);
             }
             break;

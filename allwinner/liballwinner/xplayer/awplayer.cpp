@@ -18,7 +18,7 @@
 #include "demuxComponent.h"
 #include "awMessageQueue.h"
 #include "memoryAdapter.h"
-
+#include "AwPluginManager.h"
 //* player status.
 static const int AWPLAYER_STATUS_IDLE        = 0;
 static const int AWPLAYER_STATUS_INITIALIZED = 1<<0;
@@ -38,7 +38,9 @@ static const int AWPLAYER_MESSAGE_DEMUX_SEEK_FINISH         = 0x104;
 static const int AWPLAYER_MESSAGE_DEMUX_CACHE_REPORT        = 0x105;
 static const int AWPLAYER_MESSAGE_DEMUX_BUFFER_START        = 0x106;
 static const int AWPLAYER_MESSAGE_DEMUX_BUFFER_END          = 0x107;
-static const int AWPLAYER_MESSAGE_DEMUX_DATA_PACKET         = 0x108;
+static const int AWPLAYER_MESSAGE_DEMUX_PAUSE_PLAYER        = 0x108;
+static const int AWPLAYER_MESSAGE_DEMUX_RESUME_PLAYER       = 0x109;
+static const int AWPLAYER_MESSAGE_DEMUX_DATA_PACKET         = 0x110;
 
 static const int AWPLAYER_MESSAGE_PLAYER_EOS                = 0x201;
 static const int AWPLAYER_MESSAGE_PLAYER_FIRST_PICTURE      = 0x202;
@@ -75,7 +77,7 @@ static int transformPictureMb32ToRGB(VideoPicture* pPicture,
 AwPlayer::AwPlayer()
 {
     logv("awplayer construct.");
-    //AwPluginInit();
+    AwPluginInit();
 
     mSourceUrl      = NULL;
     mStatus         = AWPLAYER_STATUS_IDLE;
@@ -180,6 +182,19 @@ int AwPlayer::initCheck()
     }
     else
         return 0;
+}
+
+int AwPlayer::setVideoOutputScaleRatio(int horizonScaleDownRatio,int verticalScaleDownRatio)
+{
+    if(mStatus == AWPLAYER_STATUS_IDLE || mStatus == AWPLAYER_STATUS_INITIALIZED)
+    {
+        return PlayerConfigVideoScaleDownRatio(mPlayer,horizonScaleDownRatio,verticalScaleDownRatio);
+    }
+    else
+    {
+        loge("not in the AWPLAYER_STATUS_IDLE or AWPLAYER_STATUS_INITIALIZED status,can not config video scale down ratio");
+        return -1;
+    }
 }
 
 int AwPlayer::setNotifyCallback(NotifyCallback notifier, void* pUserData)
@@ -423,13 +438,18 @@ int AwPlayer::getCurrentPosition(int* msec)
         }
 
         pthread_mutex_lock(&mMutex);    //* in complete status, the prepare() method maybe called
+        logd("mMediaInfo->eContainerType = %d",mMediaInfo->eContainerType);
         if(mMediaInfo != NULL)
         {
+		nPositionUs = PlayerGetPosition(mPlayer);
+			/*
             if(mMediaInfo->eContainerType == CONTAINER_TYPE_TS ||
-                mMediaInfo->eContainerType == CONTAINER_TYPE_BD)
+                mMediaInfo->eContainerType == CONTAINER_TYPE_BD ||
+                mMediaInfo->eContainerType == CONTAINER_TYPE_HLS)
                 nPositionUs = PlayerGetPosition(mPlayer); //* ts stream's pts is not started at 0.
             else
                 nPositionUs = PlayerGetPts(mPlayer);
+			*/
             *msec = (nPositionUs + 500)/1000;
             pthread_mutex_unlock(&mMutex);
             return 0;
@@ -1330,13 +1350,35 @@ int AwPlayer::callbackProcess(int messageId, void* param)
 
         case AWPLAYER_MESSAGE_DEMUX_BUFFER_START:
         {
+			logd("llh>>>play buf is not enough,NOTIFY_BUFFER_START");
             mNotifier(mUserData, NOTIFY_BUFFER_START, 0, NULL);
             break;
         }
 
         case AWPLAYER_MESSAGE_DEMUX_BUFFER_END:
         {
+			logd("llh>>>play buf is enough,NOTIFY_BUFFER_END");
             mNotifier(mUserData, NOTIFY_BUFFER_END, 0, NULL);
+            break;
+        }
+
+		case AWPLAYER_MESSAGE_DEMUX_PAUSE_PLAYER:
+        {
+			logd("callback: DEMUX_NOTIFY_PAUSE_PLAYER,mStatus = %d",mStatus);
+            if(mStatus == AWPLAYER_STATUS_STARTED){
+				logd("there is no pcm data in player,pause the player to stop the avtimer");
+				PlayerPause(mPlayer);
+			}
+            break;
+        }
+
+		case AWPLAYER_MESSAGE_DEMUX_RESUME_PLAYER:
+        {
+			logd("callback: DEMUX_NOTIFY_RESUME_PLAYER,mStatus = %d",mStatus);
+            if(mStatus == AWPLAYER_STATUS_STARTED){
+				logd("there is enough data ,resume the player");
+				PlayerStart(mPlayer);
+			}
             break;
         }
 
@@ -1510,9 +1552,7 @@ int AwPlayer::callbackProcess(int messageId, void* param)
 				}
 			}
 		break;
-
-
-        default:
+	default:
         {
             logw("message 0x%x not handled.", messageId);
             break;
@@ -1557,7 +1597,12 @@ static int DemuxCallbackProcess(void* pUserData, int eMessageId, void* param)
         case DEMUX_NOTIFY_BUFFER_END:
             msg = AWPLAYER_MESSAGE_DEMUX_BUFFER_END;
             break;
-
+		case DEMUX_NOTIFY_PAUSE_PLAYER:
+			msg = AWPLAYER_MESSAGE_DEMUX_PAUSE_PLAYER;
+            break;
+		case DEMUX_NOTIFY_RESUME_PLAYER:
+			msg = AWPLAYER_MESSAGE_DEMUX_RESUME_PLAYER;
+            break;
         case DEMUX_NOTIFY_DATA_PACKET:
             msg = AWPLAYER_MESSAGE_DEMUX_DATA_PACKET;
             break;

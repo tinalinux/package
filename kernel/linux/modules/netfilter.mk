@@ -228,14 +228,10 @@ IPSET_MODULES:= \
 	ipset/ip_set_bitmap_ipmac \
 	ipset/ip_set_bitmap_port \
 	ipset/ip_set_hash_ip \
-	ipset/ip_set_hash_ipmark \
 	ipset/ip_set_hash_ipport \
 	ipset/ip_set_hash_ipportip \
 	ipset/ip_set_hash_ipportnet \
-	ipset/ip_set_hash_mac \
-	ipset/ip_set_hash_netportnet \
 	ipset/ip_set_hash_net \
-	ipset/ip_set_hash_netnet \
 	ipset/ip_set_hash_netport \
 	ipset/ip_set_hash_netiface \
 	ipset/ip_set_list_set \
@@ -460,8 +456,10 @@ define KernelPackage/ipt-tproxy
   	CONFIG_NETFILTER_XT_MATCH_SOCKET \
   	CONFIG_NETFILTER_XT_TARGET_TPROXY
   FILES:= \
-  	$(foreach mod,$(IPT_TPROXY-m),$(LINUX_DIR)/net/$(mod).ko)
-  AUTOLOAD:=$(call AutoProbe,$(notdir nf_tproxy_core $(IPT_TPROXY-m)))
+	  $(foreach mod,$(IPT_TPROXY-m),$(LINUX_DIR)/net/$(mod).ko) \
+	  $(LINUX_DIR)/net/netfilter/nf_tproxy_core.ko \
+  	  $(LINUX_DIR)/net/ipv6/netfilter/nf_defrag_ipv6.ko
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(IPT_TPROXY-m)))
   $(call AddDepends/ipt)
 endef
 

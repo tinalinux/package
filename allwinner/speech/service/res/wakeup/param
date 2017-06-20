@@ -1,6 +1,6 @@
-{
+{ 
     "request": {
         "coreType": "cn.wakeup",
-        "env": "words=你好小驰;"
+        "env": ""
     }
 }

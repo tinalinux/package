@@ -58,7 +58,7 @@ Help options:
 
 Standard options:
 
-  --tool-chain=compile_tool_set the compile tool chain, option can be [gnueabihf/gnueabi/ucgnueabi/linuxgnueabi/muslgnueabi/muslgnueabi64], not used for android os.
+  --tool-chain=compile_tool_set the compile tool chain, option can be [gnueabihf/gnueabi/ucgnueabi/linuxgnueabi/muslgnueabi/muslgnueabi64/uclibc_arm926], not used for android os.
 
   --cedarx-path=path            the absolute path of liballwinner.
 
@@ -68,7 +68,7 @@ Standard options:
 
   --product=product_type        the target product type, option can be [pad/tvbox/ott_cmcc/iptv/dvb/loudspeaker].
 
-  --chip=chip_code              the target chip, option can be [r8/r16/r58/r18/c500/t2/t3].
+  --chip=chip_code              the target chip, option can be [r8/r16/r58/r18/c500/t2/t3/r40/v40].
 
   --debug-level=level           log output level for debug, option can be [close/error/warning/default/detail].
 
@@ -277,6 +277,8 @@ for opt do
                 value=OPTION_CC_LINUX_MUSLGNUEABI
             elif [ $optval = "muslgnueabi64" ]; then
                 value=OPTION_CC_LINUX_MUSLGNUEABI64
+            elif [ $optval = "uclibc_arm926" ]; then
+                value=OPTION_CC_UCLIBC_ARM926
             else
                 echo "invalid tool chain $optval."
                 continue
@@ -397,6 +399,10 @@ for opt do
             elif [ $optval = "t2" ]; then
                 value=OPTION_CHIP_T2
             elif [ $optval = "t3" ]; then
+                value=OPTION_CHIP_T3
+            elif [ $optval = "v40" ]; then
+                value=OPTION_CHIP_T3
+            elif [ $optval = "r40" ]; then
                 value=OPTION_CHIP_T3
             else
                 echo "invalid chip option $optval."

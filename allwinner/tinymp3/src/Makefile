@@ -46,7 +46,7 @@ tinyplayer:$(TARGET)
 	$(CC) -o tinyplayer tinyplayer.c -g -Wall -ltinymp3 -I. -I./libplayer -L. $(CFLAGS) $(LDFLAGS) $(LOCAL_CFLAGS) $(LOCAL_LDFLAGS)
 
 $(TARGET):$(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -fPIC -shared
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -fPIC -shared ./libplayer/libAudioGain.a
 
 $(OBJS):%.c.o:%.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c $^ -o $@ -fPIC -shared

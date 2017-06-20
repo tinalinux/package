@@ -32,7 +32,8 @@ define Build/Compile
 		CC="$(TARGET_CC)" \
 		CXX="$(TARGET_CXX)" \
 		CFLAGS="$(TARGET_CFLAGS)" \
-		LDFLAGS="$(TARGET_LDFLAGS)"
+		LDFLAGS="$(TARGET_LDFLAGS)" \
+		TARGET_BOARD="$(TARGET_BOARD_PLATFORM)"
 endef
 
 define Package/tinarecorderdemo/install

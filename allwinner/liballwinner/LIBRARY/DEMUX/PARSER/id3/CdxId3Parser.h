@@ -98,6 +98,7 @@ typedef struct Id3ParserImplS
     cdx_int32  forceStop;
     //id3 base
     CdxParserT *child;/*为子parser，下一级的媒体文件parser，如mp3 parser*/
+    cdx_int32 shareStreamWithChild;
     cdx_char *  keyinfo;
     cdx_char    newurl[5120];
     cdx_int64   fdoffset;

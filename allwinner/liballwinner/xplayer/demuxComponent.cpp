@@ -578,7 +578,8 @@ int DemuxCompStop(DemuxComp* d)    //* close the data source, must call prepare 
     demux->bStopping = 1;
     if(demux->pParser != NULL)
         CdxParserForceStop(demux->pParser); //* quit from reading or seeking.
-
+	else if(demux->pStream != NULL)
+		CdxStreamForceStop(demux->pStream);
     //* send a start message.
     setMessage(&msg,
                DEMUX_COMMAND_STOP,                  //* message id.
@@ -783,7 +784,11 @@ process_message:
                 logw("demux->pParser != NULL when DEMUX_COMMAND_PREPARE message received.");
                 CdxParserClose(demux->pParser);
                 demux->pParser = NULL;
-            }
+				demux->pStream = NULL;
+            }else if(demux->pStream != NULL){
+				CdxStreamClose(demux->pStream);
+				demux->pStream = NULL;
+			}
 
             flags  = 0;
 #if DEMO_CONFIG_DISABLE_SUBTITLE
@@ -911,7 +916,11 @@ process_message:
             {
                 CdxParserClose(demux->pParser);
                 demux->pParser = NULL;
-            }
+				demux->pStream = NULL;
+            }else if(demux->pStream != NULL){
+				CdxStreamClose(demux->pStream);
+				demux->pStream = NULL;
+			}
 
             demux->eStatus = DEMUX_STATUS_STOPPED;
             demux->bStopping = 0;
@@ -940,7 +949,11 @@ process_message:
             {
                 CdxParserClose(demux->pParser);
                 demux->pParser = NULL;
-            }
+				demux->pStream = NULL;
+            }else if(demux->pStream != NULL){
+				CdxStreamClose(demux->pStream);
+				demux->pStream = NULL;
+			}
 
             clearDataSourceFields(&demux->source);
             demux->eStatus = DEMUX_STATUS_IDLE;
@@ -1088,7 +1101,7 @@ process_message:
                 //**************************************************************
                 //* read data from cache.
                 //**************************************************************
-
+				logv("demux->bBufferring = %d",demux->bBufferring);
                 if(demux->bBufferring)
                 {
                     //* the player is paused and caching stream data.
@@ -1102,8 +1115,10 @@ process_message:
                     //* check whether data in cache is enough for play.
                     if(StreamCacheDataEnough(demux->pCache) || demux->bEOS || demux->bIOError)
                     {
-                        logv("detect data enough, notify BUFFER_END.");
+                        logd("detect data enough, notify BUFFER_END.");
                         demux->bBufferring = 0;
+						//data enouth,continue play
+						demux->callback(demux->pUserData, DEMUX_NOTIFY_RESUME_PLAYER, NULL);
                         demux->callback(demux->pUserData, DEMUX_NOTIFY_BUFFER_END, NULL);
                     }
 
@@ -1142,8 +1157,10 @@ process_message:
                             //* more data for player.
                             if(PlayerBufferUnderflow(demux->pPlayer))
                             {
-                                logv("detect player data underflow, notify BUFFER_START.");
+                                logd("detect player data underflow, notify BUFFER_START.");
                                 demux->bBufferring = 1;
+								//first pause the player to stop the avtimer
+								demux->callback(demux->pUserData, DEMUX_NOTIFY_PAUSE_PLAYER, NULL);
                                 demux->callback(demux->pUserData, DEMUX_NOTIFY_BUFFER_START, NULL);
                             }
                             else
@@ -2140,10 +2157,13 @@ static int PlayerBufferUnderflow(Player* p)
         nStreamDataSize = PlayerGetAudioStreamDataSize(p);
         nPcmDataSize    = PlayerGetAudioPcmDataSize(p);
         nCacheTime      = 0;
-        if(nCacheTime == 0 && nPcmDataSize == 0 && nStreamDataSize == 0)
+        //if(nCacheTime == 0 && nPcmDataSize == 0 && nStreamDataSize == 0){
+        if(nCacheTime == 0 && (nPcmDataSize + nStreamDataSize < 8000)){
+			logd("nPcmDataSize = %d,nStreamDataSize = %d",nPcmDataSize,nStreamDataSize);
             bAudioUnderFlow = 1;
+		}
 
-        logi("nStreamDataSize = %d, nPcmDataSize = %d, nCacheTime = %d, bAudioUnderFlow = %d",
+        logv("nStreamDataSize = %d, nPcmDataSize = %d, nCacheTime = %d, bAudioUnderFlow = %d",
             nStreamDataSize, nPcmDataSize, nCacheTime, bAudioUnderFlow);
     }
 

@@ -207,3 +207,54 @@ define KernelPackage/input-uinput/description
 endef
 
 $(eval $(call KernelPackage,input-uinput))
+
+define KernelPackage/touchscreen-ft5x
+  SUBMENU:=$(INPUT_MODULES_MENU)
+  TITLE:=ft5x  support
+  DEPENDS:= +kmod-input-core
+  KCONFIG:= \
+	CONFIG_INPUT_TOUCHSCREEN \
+	CONFIG_INPUT_TOUCHSCREEN_FT5X_TS
+  FILES:=$(LINUX_DIR)/drivers/input/touchscreen/ft5x/ft5x_ts.ko
+  AUTOLOAD:=$(call AutoProbe,ft5x_ts)
+endef
+
+define KernelPackage/touchscreen-ft5x/description
+ Enable support for ft5x touchscreen port.
+endef
+
+$(eval $(call KernelPackage,touchscreen-ft5x))
+
+define KernelPackage/touchscreen-gslx680new
+  SUBMENU:=$(INPUT_MODULES_MENU)
+  TITLE:=gslx680new  support
+  DEPENDS:= +kmod-input-core
+  KCONFIG:= \
+	CONFIG_INPUT_TOUCHSCREEN \
+	CONFIG_INPUT_TOUCHSCREEN_GSLX680NEW
+  FILES:=$(LINUX_DIR)/drivers/input/touchscreen/gslx680new/gslX680new.ko
+  AUTOLOAD:=$(call AutoProbe,gslX680new)
+endef
+
+define KernelPackage/touchscreen-gslx680new/description
+ Enable support for gslx680new touchscreen port.
+endef
+
+$(eval $(call KernelPackage,touchscreen-gslx680new))
+
+define KernelPackage/touchscreen-gt82x
+  SUBMENU:=$(INPUT_MODULES_MENU)
+  TITLE:=gt82x  support
+  DEPENDS:= +kmod-input-core
+  KCONFIG:= \
+	CONFIG_INPUT_TOUCHSCREEN \
+	CONFIG_INPUT_TOUCHSCREEN_GT82X
+  FILES:=$(LINUX_DIR)/drivers/input/touchscreen/gt82x.ko
+  AUTOLOAD:=$(call AutoProbe,gt82x)
+endef
+
+define KernelPackage/touchscreen-gt82x/description
+ Enable support for gt82x touchscreen port.
+endef
+
+$(eval $(call KernelPackage,touchscreen-gt82x))

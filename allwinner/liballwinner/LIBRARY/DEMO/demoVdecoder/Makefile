@@ -52,21 +52,35 @@ LoadFlags := -L../../DEMUX/BASE/ \
              -L../.././PLUGIN/manager/ \
              -L../../PLAYER/
 
-LoadFlags += -lcdc_vdecoder -lcdc_ve -lcdc_memory -lcdx_base -lcdx_parser -lcdx_stream -lpthread
+LoadFlags += -lcdc_vdecoder -lcdc_ve -lcdc_memory -lcdc_base -lcdx_base -lcdx_parser -lcdx_stream -lpthread
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
-LoadFlags += -L../../EXTERNAL/lib32/lgnueabihf/
+ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+LoadFlags += -L../../libcedarc/library/lib32/lgnueabihf_linux310
+else
 LoadFlags += -L../../libcedarc/library/lib32/lgnueabihf
 endif
 
+LoadFlags += -L../../EXTERNAL/lib32/lgnueabihf/
+endif
+
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
-LoadFlags += -L../../EXTERNAL/lib32/lgnueabi/
+ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+LoadFlags += -L../../libcedarc/library/lib32/lgnueabi_linux310
+else
 LoadFlags += -L../../libcedarc/library/lib32/lgnueabi
+endif
+LoadFlags += -L../../EXTERNAL/lib32/lgnueabi/
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))
 LoadFlags += -L../../EXTERNAL/lib32/uclgnueabi/
 LoadFlags += -L../../libcedarc/library/lib32/uclgnueabi
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../../EXTERNAL/lib32/uclibc_arm926
+LoadFlags +=-L../../libcedarc/library/lib32/uclibc-arm926
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_UCGNUEABI))
@@ -88,7 +102,18 @@ ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI64))
 LoadFlags +=-L../../EXTERNAL/lib64/muslgnueabi
 endif
 
-LoadFlags += -lcrypto -lssl -lz
+ifeq ($(CONFIG_HAVE_ZLIB), $(OPTION_HAVE_ZLIB))
+    LoadFlags += -lz
+endif
+
+ifeq ($(CONFIG_HAVE_SSL), $(OPTION_HAVE_SSL))
+LoadFlags += -lcrypto -lssl
+endif
+
+ifeq ($(CONFIG_HAVE_LIVE555), $(OPTION_HAVE_LIVE555))
+LoadFlags += -llive555
+endif
+
 LoadFlags += -Wl,--no-undefined
 
 ###############################################################################

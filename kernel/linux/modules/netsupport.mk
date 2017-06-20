@@ -786,7 +786,7 @@ $(eval $(call KernelPackage,sched-esfq))
 define KernelPackage/sched
   SUBMENU:=$(NETWORK_SUPPORT_MENU)
   TITLE:=Extra traffic schedulers
-  DEPENDS:=+kmod-sched-core +kmod-ipt-core
+  DEPENDS:=+kmod-sched-core +kmod-ipt-core +kmod-ipt-ipset
   KCONFIG:= \
 	CONFIG_NET_SCH_CODEL \
 	CONFIG_NET_SCH_DSMARK \
@@ -1005,7 +1005,7 @@ $(eval $(call KernelPackage,rxrpc))
 define KernelPackage/mpls
   SUBMENU:=$(NETWORK_SUPPORT_MENU)
   TITLE:=MPLS support
-  DEPENDS:=@!(LINUX_3_18||LINUX_4_1||LINUX_4_3)
+  DEPENDS:=@!(LINUX_3_18||LINUX_4_1||LINUX_4_3||LINUX_3_10)
   KCONFIG:= \
 	CONFIG_MPLS=y \
 	CONFIG_LWTUNNEL=y \

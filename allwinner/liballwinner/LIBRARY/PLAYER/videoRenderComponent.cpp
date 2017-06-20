@@ -1540,7 +1540,8 @@ step_5:
 					{
 						p->mLayerOps->queueBuffer(p->pLayerCtrl, pLayerBuffer, 0);
                         pLayerBuffer = NULL;
-                        p->di->reset();
+                        if(p->di)
+                            p->di->reset();
                         continue;
 					}
 
@@ -1549,7 +1550,8 @@ step_5:
 						logd("+++++ bot filed error");
 						p->mLayerOps->queueBuffer(p->pLayerCtrl, pLayerBuffer, 0);
                         pLayerBuffer = NULL;
-                        p->di->reset();
+                        if(p->di)
+                            p->di->reset();
                         break;
 					}
 

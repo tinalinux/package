@@ -3,6 +3,7 @@
 
 START=60
 
+
 USE_PROCD=1
 PROG=/usr/sbin/dnsmasq
 
@@ -219,6 +220,11 @@ dnsmasq() {
 	xappend "--conf-dir=/tmp/dnsmasq.d"
 
 	echo >> $CONFIGFILE
+
+	if [ ! -f "/etc/resolv.dnsmasq.conf" ]; then
+		touch /etc/resolv.dnsmasq.conf
+		echo "nameserver 8.8.8.8" > /etc/resolv.dnsmasq.conf
+	fi
 }
 
 dhcp_subscrid_add() {

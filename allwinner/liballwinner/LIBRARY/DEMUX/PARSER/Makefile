@@ -42,7 +42,8 @@ SourcePath =    ./                 \
                 ./mp3              \
                 ./caf              \
                 ./ogg              \
-                ./avi
+                ./avi              \
+				./playlist
 
 ifeq ($(CONFIG_HAVE_SSL), $(OPTION_HAVE_SSL))
 SourcePath += ./hls
@@ -146,35 +147,31 @@ endif
 ## set link flags
 #LoadFlags = $(CONFIG_FOR_LINK) -lGetAudio_format -ldl -shared
 LoadFlags = $(CONFIG_FOR_LINK) -ldl -shared -lpthread
+
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
 LoadFlags += -L../../EXTERNAL/lib32/lgnueabihf
 endif
+
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/lgnueabi
 endif
 
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../../EXTERNAL/lib32/uclibc_arm926
+endif
+
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/uclgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/uclgnueabi
 endif
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_UCGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/linuxgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/linuxgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/muslgnueabi
 endif
-
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI64))
 LoadFlags +=-L../../EXTERNAL/lib64/muslgnueabi
-LoadFlags +=-L../../libcedarc/library/lib64/muslgnueabi64
-endif
-
-ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI310))
-LoadFlags +=-L../../EXTERNAL/lib32/muslgnueabi
-LoadFlags += -L../../libcedarc/library/lib32/muslgnueabi_linux310
 endif
 
 LoadFlags += -L../BASE/

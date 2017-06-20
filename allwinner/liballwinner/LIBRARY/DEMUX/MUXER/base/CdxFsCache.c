@@ -240,6 +240,7 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
         //(2) start to fwrite()
         while (1)
         {
+            cdx_int32 ret;
             p_rd_ptr = (cdx_int8*)p_ctx->m_read_ptr;
             p_wr_ptr = (cdx_int8*)p_ctx->m_write_ptr;
             if (p_wr_ptr >= p_rd_ptr)
@@ -249,7 +250,13 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 if (n_write_block_num>0)
                 {
                     //n_write_block_num = 1;
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, WRITE_BLOCK_SIZE * n_write_block_num);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr,
+                        WRITE_BLOCK_SIZE * n_write_block_num);
+                    if (ret < 0 )
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += WRITE_BLOCK_SIZE*n_write_block_num;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -267,7 +274,13 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 n_write_block_num = n_valid_size_section2/WRITE_BLOCK_SIZE;
                 if (n_write_block_num > 0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, WRITE_BLOCK_SIZE * n_write_block_num);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr,
+                        WRITE_BLOCK_SIZE * n_write_block_num);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += WRITE_BLOCK_SIZE * n_write_block_num;
                     if (p_rd_ptr == p_ctx->mp_cache + p_ctx->m_cache_size)
                     {
@@ -286,7 +299,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                         need check[%p][%p][%p][%d][%d]",
                         __FUNCTION__, __LINE__, p_rd_ptr, p_wr_ptr, p_ctx->mp_cache,
                         p_ctx->m_cache_size, n_valid_size_section2);
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr = p_ctx->mp_cache;
                     p_ctx->m_read_ptr = p_rd_ptr;
                 }
@@ -305,7 +323,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 n_valid_size = p_wr_ptr - p_rd_ptr;
                 if (n_valid_size>0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += n_valid_size;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -318,7 +341,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 n_valid_size = n_valid_size_section1 + n_valid_size_section2;
                 if (n_valid_size_section2 > 0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr = p_ctx->mp_cache;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -330,7 +358,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 }
                 if (n_valid_size_section1 > 0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section1);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section1);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += n_valid_size_section1;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -361,7 +394,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 n_valid_size = p_wr_ptr - p_rd_ptr;
                 if (n_valid_size>0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += n_valid_size;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -374,7 +412,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 n_valid_size = n_valid_size_section1 + n_valid_size_section2;
                 if (n_valid_size_section2 > 0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section2);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr = p_ctx->mp_cache;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);
@@ -386,7 +429,12 @@ static CDX_PTR FsCacheWriteThread(CDX_PTR p_thread_data)
                 }
                 if (n_valid_size_section1 > 0)
                 {
-                    FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section1);
+                    ret = FileWriter(p_ctx->mp_writer, p_rd_ptr, n_valid_size_section1);
+                    if (ret < 0)
+                    {
+                        loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                        goto EXIT;
+                    }
                     p_rd_ptr += n_valid_size_section1;
                     p_ctx->m_read_ptr = p_rd_ptr;
                     CdxSemSignal(&p_ctx->m_write_done_sem);

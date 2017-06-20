@@ -6,3 +6,4 @@ aios_tips = {
     wakeup_again = {"主人我累了，请再次唤醒使用其他功能"},
     repeat_again = {"我没听清，请再说一遍"},
 }
+

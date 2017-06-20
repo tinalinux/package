@@ -92,7 +92,6 @@ int wpa_conf_is_ap_exist(const char *ssid, tKEY_MGMT key_mgmt, char *net_id, int
             if(net_id != NULL && *len > 0){
                 strncpy(net_id, p, *len-1);
                 net_id[*len-1] = '\0';
-                *len = strlen(net_id);
             }
         }
 
@@ -110,6 +109,7 @@ int wpa_conf_is_ap_exist(const char *ssid, tKEY_MGMT key_mgmt, char *net_id, int
 
         if(strcmp(key_reply, key_type) == 0){
             flag += 1;
+			*len = strlen(net_id);
             break;
         }
 
@@ -167,7 +167,7 @@ int wpa_conf_ssid2netid(char *ssid, tKEY_MGMT key_mgmt, char *net_id, int *len)
             }
         }
 
-        flag = 0;
+       flag |= (0x01 << 0);
 
         p_e = strchr(pssid_start, '\n');
         if(p_e){
@@ -176,19 +176,16 @@ int wpa_conf_ssid2netid(char *ssid, tKEY_MGMT key_mgmt, char *net_id, int *len)
         p_s = strrchr(ptr, '\n');
         p_s++;
 
-        if(strstr(p_s, "CURRENT")){
-            flag = 2;
-        }
+
 
         p_t = strchr(p_s, '\t');
         if(p_t){
-		  int tmp = 0;
+	   int tmp = 0;
             tmp = p_t - p_s;
             if(tmp <= NET_ID_LEN){
-               strncpy(net_id, p_s, tmp);
-               net_id[tmp] = '\0';
+            strncpy(net_id, p_s, tmp);
+            net_id[tmp] = '\0';
             }
-            *len = tmp;
         }
 
         /* get key_mgmt */
@@ -201,7 +198,8 @@ int wpa_conf_ssid2netid(char *ssid, tKEY_MGMT key_mgmt, char *net_id, int *len)
         }
 
         if(strcmp(key_reply, key_type) == 0){
-            flag += 1;
+           flag |= (0x01 << 1);
+	  *len =  strlen(net_id);
             break;
         }
 

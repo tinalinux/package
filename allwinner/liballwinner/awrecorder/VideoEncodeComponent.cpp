@@ -69,6 +69,7 @@ typedef struct EncodeCompContex
     int                     mDesOutHeight;
     int                     mInputWidth;
     int                     mInputHeight;
+    VENC_PIXEL_FMT          mInputYuvFormat;
 
     VencHeaderData          mPpsInfo;    //ENCEXTRADATAINFO_t //spspps info.
 
@@ -366,6 +367,7 @@ static int setEncodeType(EncodeCompContex *p, VideoEncodeConfig* config)
     p->mInputWidth   = config->nSrcWidth;
     p->mInputHeight  = config->nOutHeight;
     p->mSrcFrameRate = config->nSrcFrameRate;
+    p->mInputYuvFormat = config->nInputYuvFormat;
     if(p->mEncodeType != VENC_CODEC_H264 && p->mEncodeType != VENC_CODEC_JPEG)
     {
 	loge("connot support this video type, p->mEncodeType(%d)", p->mEncodeType);
@@ -395,6 +397,27 @@ static int setEncodeType(EncodeCompContex *p, VideoEncodeConfig* config)
     memset(&bufferParam, 0 ,sizeof(VencAllocateBufferParam));
     bufferParam.nSizeY = baseConfig.nInputWidth*baseConfig.nInputHeight;
 	bufferParam.nSizeC = baseConfig.nInputWidth*baseConfig.nInputHeight/2;
+
+    if((baseConfig.eInputFormat>=0)&&(baseConfig.eInputFormat<=3))
+    {
+        bufferParam.nSizeY = baseConfig.nInputWidth*baseConfig.nInputHeight;
+        bufferParam.nSizeC = baseConfig.nInputWidth*baseConfig.nInputHeight/2;
+    }
+    else if((baseConfig.eInputFormat>=4)&&(baseConfig.eInputFormat<=7))
+    {
+        bufferParam.nSizeY = baseConfig.nInputWidth*baseConfig.nInputHeight;
+        bufferParam.nSizeC = baseConfig.nInputWidth*baseConfig.nInputHeight;
+    }
+    else if((baseConfig.eInputFormat>=8)&&(baseConfig.eInputFormat<=11))
+    {
+        bufferParam.nSizeY = baseConfig.nInputWidth*baseConfig.nInputHeight*2;
+        bufferParam.nSizeC = 0;
+    }
+    else if((baseConfig.eInputFormat>=12)&&(baseConfig.eInputFormat<=15))
+    {
+        bufferParam.nSizeY = baseConfig.nInputWidth*baseConfig.nInputHeight*4;
+        bufferParam.nSizeC = 0;
+    }
 
 #if(CONFIG_CHIP == OPTION_CHIP_C500 )
 	bufferParam.nBufferNum = 2;
@@ -650,11 +673,16 @@ int VideoEncodeCompGetExtradata(VideoEncodeComp *v, unsigned char** buf, unsigne
 	EncodeCompContex* p;
 	p = (EncodeCompContex*)v;
 	*length = 0;
+	int ret;
 	if(p->mEncodeType == VENC_CODEC_H264)
 	{
-		VideoEncGetParameter(p->pEncoder, VENC_IndexParamH264SPSPPS, &p->mPpsInfo);    //VencHeaderData    spsppsInfo;
+		ret = VideoEncGetParameter(p->pEncoder, VENC_IndexParamH264SPSPPS, &p->mPpsInfo);    //VencHeaderData    spsppsInfo;
+        if(ret == 0)
+        {
 		*length = p->mPpsInfo.nLength;
 		*buf = p->mPpsInfo.pBuffer;
+		}
+		return ret;
 	}
 
 	return 0;
@@ -793,12 +821,6 @@ int VideoEncodeCompInputBuffer(VideoEncodeComp* v, VideoInputBuffer *buf)
 
 	if(p->mUseAllocInputBuffer)
 	{
-		if(buf->nLen!= (int)sizeY*3/2)
-		{
-			loge("input buf length not right");
-			return -1;
-		}
-
 		//* check used buffer, return it
 		if(0==AlreadyUsedInputBuffer(p->pEncoder, &inputBufferReturn))
 		{
@@ -814,8 +836,23 @@ int VideoEncodeCompInputBuffer(VideoEncodeComp* v, VideoInputBuffer *buf)
 
 		inputBuffer.nPts = buf->nPts;
 		inputBuffer.nFlag = 0;
-		memcpy(inputBuffer.pAddrVirY, buf->pData, sizeY);
-		memcpy(inputBuffer.pAddrVirC, buf->pData+sizeY, sizeY/2);
+
+        // YUV420
+        if((p->mInputYuvFormat >= 0) && (p->mInputYuvFormat <= 3))
+        {
+            memcpy(inputBuffer.pAddrVirY, buf->pData, sizeY);
+            memcpy(inputBuffer.pAddrVirC, buf->pData+sizeY, sizeY/2);
+        }
+        else if((p->mInputYuvFormat >= 4) && (p->mInputYuvFormat <= 7))
+        {
+            // YUV422
+            memcpy(inputBuffer.pAddrVirY, buf->pData, sizeY);
+            memcpy(inputBuffer.pAddrVirC, buf->pData+sizeY, sizeY);
+        }
+        else if((p->mInputYuvFormat >= 8) && (p->mInputYuvFormat <= 15))
+        {
+            memcpy(inputBuffer.pAddrVirY, buf->pData, buf->nLen);
+        }
 
 		inputBuffer.bEnableCorp = 0;
 		inputBuffer.sCropInfo.nLeft =  240;
@@ -834,8 +871,16 @@ int VideoEncodeCompInputBuffer(VideoEncodeComp* v, VideoInputBuffer *buf)
 		inputBuffer.nID = buf->nID;
 		inputBuffer.nPts = buf->nPts;
 		inputBuffer.nFlag = 0;
-		inputBuffer.pAddrPhyY = buf->pAddrPhyY;
-		inputBuffer.pAddrPhyC = buf->pAddrPhyC;
+
+        if((p->mInputYuvFormat > 7) && (p->mInputYuvFormat < 12))
+        {
+            inputBuffer.pAddrPhyY = buf->pAddrPhyY;
+        }
+        else
+        {
+            inputBuffer.pAddrPhyY = buf->pAddrPhyY;
+            inputBuffer.pAddrPhyC = buf->pAddrPhyC;
+        }
 
 		inputBuffer.bEnableCorp = 0;
 		inputBuffer.sCropInfo.nLeft =  240;

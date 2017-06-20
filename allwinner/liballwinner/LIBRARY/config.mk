@@ -3,7 +3,7 @@
 ## configurations.
 ################################################################################
 
-CONFIG_CEDARX_PATH = /home/lilihong/workspace/cedarx_linux_release/cedarx_release/liballwinner/
+CONFIG_CEDARX_PATH = /home/xuqi/project/cedarx_release/liballwinner/
 
 ## configure tool chain for linux makefile.
 # arm-linux-gnueabihf- or arm-none-linux-gnueabi- tool chain
@@ -19,6 +19,8 @@ OPTION_CC_LINUX_MUSLGNUEABI = 5
 LOCAL_CFLAGS += -DOPTION_CC_LINUX_MUSLGNUEABI=$(OPTION_CC_LINUX_MUSLGNUEABI)
 OPTION_CC_LINUX_MUSLGNUEABI64 = 6
 LOCAL_CFLAGS += -DOPTION_CC_LINUX_MUSLGNUEABI64=$(OPTION_CC_LINUX_MUSLGNUEABI64)
+OPTION_CC_UCLIBC_ARM926 = 6
+LOCAL_CFLAGS += -DOPTION_CC_UCLIBC_ARM926=$(OPTION_CC_UCLIBC_ARM926)
 
 ########## option for os config. ##########
 OPTION_OS_ANDROID = 1
@@ -329,6 +331,9 @@ LOCAL_CFLAGS += -DCONFIG_HAVE_SSL=$(CONFIG_HAVE_SSL)
 
 ########## configre live555 ######################
 LOCAL_CFLAGS += -DCONFIG_HAVE_LIVE555=$(CONFIG_HAVE_LIVE555)
+
+########## configre mms ######################
+LOCAL_CFLAGS += -DCONFIG_MMS=$(CONFIG_MMS)
 
 ifeq ($(CONFIG_OS), $(OPTION_OS_LINUX))
 	ifeq ($(CONFIG_CHIP),$(OPTION_CHIP_R16))

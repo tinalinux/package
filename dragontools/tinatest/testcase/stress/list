@@ -1,0 +1,10 @@
+/stress/reboot
+/stress/io
+/stress/ddr
+/stress/gpu
+/stress/rw/rw-auto
+/stress/rw/rw-loop
+/stress/cpu/cpucalc
+/stress/cpu/cpufreq
+/stress/cpu/cpuhotplug
+/stress/standby

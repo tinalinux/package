@@ -41,6 +41,7 @@ define Build/Compile
 		CFLAGS="$(TARGET_CFLAGS)"\
 		LDFLAGS="$(TARGET_LDFLAGS)" \
 		CONFIG_PREFIX="$(PKG_INSTALL_DIR)" \
+		TARGET_BOARD="$(TARGET_BOARD_PLATFORM)" \
 		all \
 		V=1
 endef

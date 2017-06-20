@@ -35,7 +35,7 @@ typedef struct tag_FsSimpleCacheContext
 static cdx_int32 FsSimpleCacheWrite(CdxFsWriter *thiz, const cdx_int8 *buf, cdx_int32 size)
 {
     FsSimpleCacheContext *p_ctx = (FsSimpleCacheContext*)thiz->m_priv;
-    cdx_int32 n_left_size;
+    cdx_int32 n_left_size, ret;
     if(0 == size || NULL == buf)
     {
         loge("(f:%s, l:%d) Invalid input paramter!", __FUNCTION__, __LINE__);
@@ -55,7 +55,12 @@ static cdx_int32 FsSimpleCacheWrite(CdxFsWriter *thiz, const cdx_int8 *buf, cdx_
             p_ctx->m_valid_len+=size;
             if(p_ctx->m_valid_len == p_ctx->m_cache_size)
             {
-                FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_cache_size);
+                ret = FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_cache_size);
+                if (ret < 0)
+                {
+                    loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                    return ret;
+                }
                 p_ctx->m_valid_len = 0;
             }
             return size;
@@ -65,7 +70,12 @@ static cdx_int32 FsSimpleCacheWrite(CdxFsWriter *thiz, const cdx_int8 *buf, cdx_
             cdx_int32 n_size0 = p_ctx->m_cache_size - p_ctx->m_valid_len;
             n_left_size = size - n_size0;
             memcpy(p_ctx->mp_cache + p_ctx->m_valid_len, buf, n_size0);
-            FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_cache_size);
+            ret = FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_cache_size);
+            if (ret < 0)
+            {
+                loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+                return ret;
+            }
             p_ctx->m_valid_len = 0;
         }
     }
@@ -79,7 +89,12 @@ static cdx_int32 FsSimpleCacheWrite(CdxFsWriter *thiz, const cdx_int8 *buf, cdx_
         size_t n_write_size = (n_left_size / p_ctx->m_cache_size) * p_ctx->m_cache_size;
         logv("(f:%s, l:%d) [%d], direct fwrite[%d]kB!",
             __FUNCTION__, __LINE__, size-n_left_size, n_left_size / 1024);
-        FileWriter(p_ctx->mp_writer, buf+(size-n_left_size), n_write_size);
+        ret = FileWriter(p_ctx->mp_writer, buf+(size-n_left_size), n_write_size);
+        if (ret < 0)
+        {
+            loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+            return ret;
+        }
         n_left_size -= n_write_size;
     }
     if(n_left_size > 0)
@@ -113,7 +128,12 @@ static cdx_int32 FsSimpleCacheFlush(CdxFsWriter *thiz)
     FsSimpleCacheContext *p_ctx = (FsSimpleCacheContext*)thiz->m_priv;
     if(p_ctx->m_valid_len > 0)
     {
-        FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_valid_len);
+        cdx_int32 ret = FileWriter(p_ctx->mp_writer, p_ctx->mp_cache, p_ctx->m_valid_len);
+        if (ret < 0)
+        {
+            loge("(f:%s, l:%d) FileWriter() failed", __FUNCTION__, __LINE__);
+            return ret;
+        }
         p_ctx->m_valid_len = 0;
     }
     return 0;

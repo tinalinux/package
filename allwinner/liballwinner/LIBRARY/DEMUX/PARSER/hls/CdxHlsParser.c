@@ -87,8 +87,10 @@ _reTry:
             return ret;
         }
         CDX_LOGE("CdxStreamOpen fail");
+        pthread_mutex_lock(mutex);
         CdxStreamClose(*stream);
         *stream = NULL;
+        pthread_mutex_unlock(mutex);
         usleep(50*1000);
         goto _reTry;
     }
@@ -340,6 +342,10 @@ static int SetDataSouceForSegment(CdxHlsParser *hlsParser, PlaylistItem *item)
                 if(ret < 0)
                 {
                     CDX_LOGE("CdxStreamOpen fail");
+                    if (stream){
+                        CdxStreamClose(stream);
+						stream= NULL;
+					}
                     ret = -1;
                     goto out;
                 }
@@ -347,6 +353,10 @@ static int SetDataSouceForSegment(CdxHlsParser *hlsParser, PlaylistItem *item)
                 if(ret != 16)
                 {
                     CDX_LOGE("CdxStreamRead fail");
+                    if (stream){
+                        CdxStreamClose(stream);
+						stream= NULL;
+					}
                     ret = -1;
                     goto out;
                 }
@@ -802,8 +812,14 @@ static int RefreshPlaylist(CdxHlsParser *hlsParser)
     int ret = CdxStreamOpen_Retry(&dataSource, &hlsParser->statusLock, &hlsParser->forceStop,
                                   &hlsParser->cdxStream, &streamContorlTask);
 
+	FreeExtraDataOfDataSouce(&dataSource);
     if(ret < 0)
     {
+	CDX_LOGE("CdxStreamOpen fail");
+        if (hlsParser->cdxStream){
+            CdxStreamClose(hlsParser->cdxStream);
+			hlsParser->cdxStream= NULL;
+		}
         if(!hlsParser->forceStop)
         {
             CDX_LOGE("CdxStreamOpen error");
@@ -1687,14 +1703,29 @@ _NextSegment:
                 streamContorlTask1.cmd = STREAM_CMD_SET_ISHLS;
                 streamContorlTask1.param = NULL;
                 streamContorlTask1.next = NULL;
-                CdxStreamT *tmpStream = hlsParser->childStream[0];
+				pthread_mutex_lock(&hlsParser->statusLock);
+                //CdxStreamT *tmpStream = hlsParser->childStream[0];
                 hlsParser->childStream[0] = NULL;
+				pthread_mutex_unlock(&hlsParser->statusLock);
                 ret = CdxStreamOpen_Retry(&hlsParser->cdxDataSource, &hlsParser->statusLock,
                                           &hlsParser->forceStop, &hlsParser->childStream[0],
                                           &streamContorlTask);
                 if(ret < 0)
                 {
                     CDX_LOGD("CdxStreamOpen fail");
+					 /* Whether hlsParser->forceStop is true or false, if childStream[0]
+                     * is not NULL, it leads to memleak definitely. We can pass the stream
+                     * to TS parser and let the parser do close. However, call TS parser
+                     * control function is heavy. And by close it immediately, we can avoid
+                     * call force stop on it and waste time.
+                     */
+                    pthread_mutex_lock(&hlsParser->statusLock);
+                    if (hlsParser->childStream[0] != NULL)
+                    {
+                        CdxStreamClose(hlsParser->childStream[0]);
+                        hlsParser->childStream[0] = NULL;
+                    }
+                    pthread_mutex_unlock(&hlsParser->statusLock);
                     if(!hlsParser->forceStop)
                     {
                         CDX_LOGE(" CdxStreamOpen error!");
@@ -1703,6 +1734,7 @@ _NextSegment:
                     else
                     {
                         ret = -1;
+						/*
                         if(hlsParser->childStream[0] != NULL &&
                             hlsParser->childStream[0] != tmpStream)
                         {
@@ -1711,6 +1743,7 @@ _NextSegment:
                                 CDX_PSR_CMD_REPLACE_STREAM, (void *)hlsParser->childStream[0]);
                             pthread_mutex_unlock(&hlsParser->statusLock);
                         }
+						*/
                         goto _exit;
                     }
 
@@ -2301,17 +2334,28 @@ static cdx_int32 HlsParserSeekTo(CdxParserT *parser, cdx_int64  timeUs)
             hlsParser->u.media.baseTimeUs = item->u.mediaItemAttribute.baseTimeUs;
             hlsParser->u.media.curItemInf.item = item;
 
-            CdxStreamT *tmpStream = hlsParser->childStream[0];
+            pthread_mutex_lock(&hlsParser->statusLock);
+            hlsParser->childStream[0] = NULL;
+            pthread_mutex_unlock(&hlsParser->statusLock);
             ret = CdxStreamOpen_Retry(&hlsParser->cdxDataSource, &hlsParser->statusLock,
                                       &hlsParser->forceStop, &hlsParser->childStream[0],
                                       &streamContorlTask);
             if(ret < 0)
             {
+                pthread_mutex_lock(&hlsParser->statusLock);
+                if (hlsParser->childStream[0] != NULL)
+                {
+                    CdxStreamClose(hlsParser->childStream[0]);
+                    hlsParser->childStream[0] = NULL;
+                }
+                pthread_mutex_unlock(&hlsParser->statusLock);
+
                 if(!hlsParser->forceStop)
                 {
                     CDX_LOGE(" CdxStreamOpen error!");
                     hlsParser->mErrno = PSR_IO_ERR;
                 }
+				/*
                 else
                 {
                     if(hlsParser->childStream[0] != NULL && hlsParser->childStream[0] != tmpStream)
@@ -2322,6 +2366,7 @@ static cdx_int32 HlsParserSeekTo(CdxParserT *parser, cdx_int64  timeUs)
                         pthread_mutex_unlock(&hlsParser->statusLock);
                     }
                 }
+                */
                 ret = -1;
                 goto _exit;
             }

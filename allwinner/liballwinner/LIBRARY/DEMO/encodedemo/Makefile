@@ -84,13 +84,26 @@ LoadFlags += -L../../DEMUX/BASE/ \
              -L../../PLUGIN/manager \
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABIHF))
+	ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+	LoadFlags += -L../../libcedarc/library/lib32/lgnueabihf_linux310
+	else
+	LoadFlags += -L../../libcedarc/library/lib32/lgnueabihf
+	endif
 LoadFlags += -L../../EXTERNAL/lib32/lgnueabihf/
-LoadFlags += -L../../libcedarc/library/lib32/lgnueabihf
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
+	ifeq ($(LINUX_VERSION),$(LINUX_VERSION_3_10))
+	LoadFlags += -L../../libcedarc/library/lib32/lgnueabi_linux310
+	else
+	LoadFlags += -L../../libcedarc/library/lib32/lgnueabi
+	endif
 LoadFlags += -L../../EXTERNAL/lib32/lgnueabi/
-LoadFlags += -L../../libcedarc/library/lib32/lgnueabi
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../../EXTERNAL/lib32/uclibc_arm926
+LoadFlags +=-L../../libcedarc/library/lib32/uclibc-arm926
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))

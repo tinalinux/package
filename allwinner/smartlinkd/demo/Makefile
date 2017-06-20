@@ -4,7 +4,8 @@ TARGET = smartlinkd_demo
 INCLUDES += -I. \
 			-I../src/include \
 			-I../src/libclient \
-			-I../src/include/platform/Tina \
+			-I../src/include/platform/Tina
+
 
 SRCS := \
 	main.c \
@@ -12,7 +13,8 @@ SRCS := \
 SUB_LIB := \
 	-lpthread \
 	-L../src/libclient \
-	-lsmartlinkd_client
+	-lsmartlinkd_client \
+	-lwifimg
 
 
 $(TARGET):

@@ -9,15 +9,13 @@ static int status = 0;
 static int playing = 0;
 c_bt c;
 
-void bt_event_f(BT_EVENT event)
+void bt_event_f(BT_EVENT event, void *reply, int *len)
 {
     switch(event)
     {
 	  case BT_AVK_CONNECTED_EVT:
 	  {
 		  printf("Media audio connected!\n");
-		  c.set_dev_discoverable(0);
-		  c.set_dev_connectable(0);
 		  status = 1;
 		  break;
 	  }
@@ -25,8 +23,7 @@ void bt_event_f(BT_EVENT event)
 	  case BT_AVK_DISCONNECTED_EVT:
 	  {
 		  printf("Media audio disconnected!\n");
-		  c.set_dev_connectable(1);
-		  c.set_dev_discoverable(1);
+		  printf("Link down reason %d\n", *(int *)reply);
 		  status = 0;
 		  break;
 	  }
@@ -89,6 +86,9 @@ int main(int argc, char *args[]){
         }
         printf("wait connected %d ms\n", i/10);
 
+	c.set_dev_discoverable(0);
+	c.set_dev_connectable(0);
+
         while(playing == 0){
             printf("wait phone play music\n");
             usleep(1000*1000);
@@ -96,6 +96,17 @@ int main(int argc, char *args[]){
 
         printf("Playing music 10s\n");
         usleep(20*1000*1000);
+
+        printf("Pause playing\n");
+        c.avk_close_pcm_alsa();
+        //c.avk_pause();
+        usleep(5*1000*1000);
+
+        printf("Resume playing\n");
+        //c.avk_play();
+        c.avk_resume_pcm_alsa();
+        usleep(20*1000*1000);
+
         printf("Call disconnect\n");
         c.disconnect();
 
@@ -105,6 +116,9 @@ int main(int argc, char *args[]){
             i++;
         }
         printf("wait disconnect event %d ms\n", i);
+
+	c.set_dev_discoverable(1);
+	c.set_dev_connectable(1);
 
         printf("Call connect\n");
         c.connect_auto();

@@ -563,17 +563,13 @@ typedef struct
 
     /*******************************************************************************
     **
-    ** Function         app_hs_get_conn_by_handle
-    **
-    ** Description      Find a connection control block by its handle
-    **
-    ** Parameters       UINT16 handle
-    **
-    ** Returns          Pointer to the found connection, NULL if not found
-    **
-    *******************************************************************************/
-    tBSA_HS_CONN_CB *app_hs_get_conn_by_handle(UINT16 handle);
-
+     ** Function         app_hs_get_conn_by_handle_external
+     **
+     ** Description      Find a connection control block by its handle
+     **
+     ** Returns          Pointer to the found connection, NULL if not found
+     *******************************************************************************/
+	 tBSA_HS_CONN_CB *app_hs_get_conn_by_handle_external(UINT16 handle);
 #ifdef  __cplusplus
 }
 #endif

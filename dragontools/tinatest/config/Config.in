@@ -1,0 +1,19 @@
+menu 'System Config'
+    source sys/Config.in
+endmenu
+
+menu 'Demo For Testcases'
+    source demo/Config.in
+endmenu
+
+menu 'Basical Functions'
+    source base/Config.in
+endmenu
+
+menu 'Specifications'
+    source spec/Config.in
+endmenu
+
+menu 'Stress'
+    source stress/Config.in
+endmenu

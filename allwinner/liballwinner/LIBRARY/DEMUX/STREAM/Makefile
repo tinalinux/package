@@ -44,7 +44,8 @@ SourcePath =       \
             ./http \
 
 ifeq ($(CONFIG_HAVE_LIVE555), $(OPTION_HAVE_LIVE555))
-SourcePath +=       ./rtsp
+SourcePath +=       ./rtsp \
+					./rtmp
 endif
 
 ifeq ($(CONFIG_HAVE_SSL), $(OPTION_HAVE_SSL))
@@ -56,8 +57,7 @@ SourcePath +=       ./mms
 endif
 
 VPATH := $(SourcePath)
-
-## set the source files.
+# set the source files.
 SourceFiles  = $(foreach dir,$(SourcePath),$(shell find $(dir) -maxdepth 1 -name "*.c"))
 CppSourceFiles  = $(foreach dir,$(SourcePath),$(shell find $(dir) -maxdepth 1 -name "*.cpp"))
 
@@ -112,31 +112,26 @@ endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_GNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/lgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/lgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_UCGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/uclgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/uclgnueabi
+endif
+
+ifeq ($(CONFIG_CC),$(OPTION_CC_UCLIBC_ARM926))
+LoadFlags += -L../../EXTERNAL/lib32/uclibc_arm926
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_UCGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/linuxgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/linuxgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI))
 LoadFlags +=-L../../EXTERNAL/lib32/muslgnueabi
-LoadFlags +=-L../../libcedarc/library/lib32/muslgnueabi
 endif
 
 ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI64))
 LoadFlags +=-L../../EXTERNAL/lib64/muslgnueabi
-endif
-
-ifeq ($(CONFIG_CC),$(OPTION_CC_LINUX_MUSLGNUEABI310))
-LoadFlags +=-L../../EXTERNAL/lib32/muslgnueabi
-LoadFlags += -L../../libcedarc/library/lib32/muslgnueabi_linux310
 endif
 
 ifeq ($(CONFIG_HAVE_ZLIB), $(OPTION_HAVE_ZLIB))
