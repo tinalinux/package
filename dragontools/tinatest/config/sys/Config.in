@@ -1,0 +1,60 @@
+comment "Configs For TinaTest"
+config TINATEST_SYS_GLOBAL
+    bool "global"
+    default y
+
+if TINATEST_SYS_GLOBAL
+    ####### info #######
+    source Config-collectd.in
+	source Config-outlog.in
+
+    ####### limit #######
+    config TINATEST_SYS_GLOBAL_LIMIT_RUN_CNT_UP_TO
+        int "run_cnt_up_to"
+        default 3
+endif
+
+comment "Configs For Testcases Default Setting"
+config TINATEST_SYS_LOCAL
+    bool "local"
+    default y
+
+if TINATEST_SYS_LOCAL
+    ####### info #######
+    config TINATEST_SYS_LOCAL_INFO_DATE
+        bool "date"
+        default y
+
+    config TINATEST_SYS_LOCAL_INFO_RESOURCE
+        bool "resource"
+        default y
+
+    ####### limit #######
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_TIMES
+        int "run_times"
+        default 1
+
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_ALONE
+        bool "run_alone"
+        default n
+
+    config TINATEST_SYS_LOCAL_LIMIT_MAY_REBOOT
+        bool "may_reboot"
+        default n
+
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_PARALLEL
+        bool "run_parallel"
+        default n
+
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_TIME_SEC
+        int "run_time_sec"
+        default 10000
+
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_TIME_MIN
+        int "run_times_min"
+        default 0
+
+    config TINATEST_SYS_LOCAL_LIMIT_RUN_TIME_HOUR
+        int "run_times_hour"
+        default 0
+endif

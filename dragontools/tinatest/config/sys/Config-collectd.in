@@ -1,0 +1,186 @@
+menu 'collectd'
+config TINATEST_SYS_GLOBAL_INFO_COLLECTD
+    bool "Enable"
+    default n
+
+if TINATEST_SYS_GLOBAL_INFO_COLLECTD
+    #===== interval sec =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_INTERVAL_SEC
+        int "collectd_interval_sec"
+        default 2
+
+    #===== rrdtool =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_RRDTOOL_ENABLE
+        bool "collectd_rrdtool"
+        default n
+        select PACKAGE_collectd-mod-rrdtool
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_RRDTOOL_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_RRDTOOL_OUTDIR
+            string "outdir"
+            default "/mnt/UDISK/collectd"
+    endif
+
+    #===== csv =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_CSV_ENABLE
+        bool "collectd_csv"
+        default y
+        select PACKAGE_collectd-mod-csv
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_CSV_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_CSV_OUTDIR
+            string "outdir"
+            default "/mnt/UDISK/collectd"
+    endif
+
+    #===== cpu =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_CPU_ENABLE
+        bool "collectd_cpu"
+        default n
+        select PACKAGE_collectd-mod-cpu
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_CPU_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_CPU_REPORT_TO_PERCENTAGE
+            bool "report_to_percentage"
+            default n
+    endif
+
+    #===== memory =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_MEMORY_ENABLE
+        bool "collectd_memory"
+        default n
+        select PACKAGE_collectd-mod-memory
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_MEMORY_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_MEMORY_REPORT_TO_ABSOLUTE
+            bool "report_to_absolute"
+            default n
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_MEMORY_REPORT_TO_PERCENTAGE
+            bool "report_to_percentage"
+            default y
+    endif
+
+    #===== df =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_ENABLE
+        bool "collectd_df"
+        default n
+        select PACKAGE_collectd-mod-df
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_REPORT_TO_ABSOLUTE
+            bool "report_to_absolute"
+            default n
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_REPORT_TO_PERCENTAGE
+            bool "report_to_percentage"
+            default y
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH
+            bool "match"
+            default y
+
+        if TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH_SELLECT_OR_IGNORE
+                string "sellect_or_ignore"
+                default "sellect"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH_DEVICE
+                string "device"
+                default "ALL"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH_MOUNTPOINT
+                string "mountpoint"
+                default "ALL"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DF_MATCH_FSTYPE
+                string "fstype"
+                default "ALL"
+        endif
+    endif
+
+    #===== disk =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_ENABLE
+        bool "collectd_disk"
+        default n
+        select PACKAGE_collectd-mod-disk
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_MATCH
+            bool "match"
+            default y
+
+        if TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_MATCH
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_MATCH_SELLECT_OR_IGNORE
+                string "sellect_or_ignore"
+                default "sellect"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_DISK_MATCH_DISK_REGULAR_EXPRESSION
+                string "disk_regular_expression"
+                default "mmcblk0p.*"
+        endif
+    endif
+
+    #===== filecount =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_ENABLE
+        bool "collectd_filecount"
+        default n
+        select PACKAGE_collectd-mod-filecount
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_DIRECTORY
+            string "direcotry"
+            default "/mnt/UDISK"
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_INCLUDE_HIDDEN
+            bool "include_hidden"
+            default n
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_INCLUDE_SUBDIR
+            bool "include_subdir"
+            default n
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_MATCH
+            bool "match"
+            default y
+
+        if TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_MATCH
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_MATCH_NAME
+                string "name"
+                default "ALL"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_MATCH_SIZE
+                string "size"
+                default "ALL"
+
+            config TINATEST_SYS_GLOBAL_INFO_COLLECTD_FILECOUNT_MATCH_MTIME
+                string "mtime"
+                default "ALL"
+        endif
+    endif
+
+    #===== ping =====
+    config TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_ENABLE
+        bool "collectd_ping"
+        default n
+        select PACKAGE_collectd-mod-ping
+
+    if TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_ENABLE
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_HOST
+            string "host"
+            default "192.168.1.1"
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_SEND_INTERVAL_SEC
+            string "send_interval_sec"
+            default "1.0"
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_TIMEOUT_SEC
+            string "timeout_sec"
+            default "1.0"
+
+        config TINATEST_SYS_GLOBAL_INFO_COLLECTD_PING_MAX_TTL
+            int "max_ttl"
+            default 255
+    endif
+endif
+endmenu

@@ -1,0 +1,20 @@
+==========================================
+DDK build information
+=====================
+
+DDK version: r4p0-00rel0
+
+Build command:
+make ARCH=arm CONFIG=release VARIANT=mali400-linux-dma_buf-gles11-gles20-rgb_is_xrgb-no_Werror CROSS_COMPILE=arm-openwrt-linux- all suites -j
+
+==========================================
+Toolchain information
+=====================
+
+Reading specs from /home/yuxyun/work/tina_v2.0/out/astar-parrot/staging_dir/toolchain/bin/../lib/gcc/arm-openwrt-linux-muslgnueabi/5.2.0/specs
+COLLECT_GCC=./out/astar-parrot/staging_dir/toolchain/bin/arm-openwrt-linux-gcc
+COLLECT_LTO_WRAPPER=/home/yuxyun/work/tina_v2.0/out/astar-parrot/staging_dir/toolchain/bin/../libexec/gcc/arm-openwrt-linux-muslgnueabi/5.2.0/lto-wrapper
+Target: arm-openwrt-linux-muslgnueabi
+Configured with: /home/yuxyun/work/tina/out/astar-parrot/compile_dir/toolchain/gcc-5.2.0/configure --with-bugurl=https://dev.openwrt.org/ --with-pkgversion='OpenWrt GCC 5.2.0 70-1-1' --prefix=/home/yuxyun/work/tina/out/astar-parrot/staging_dir/toolchain --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=arm-openwrt-linux-muslgnueabi --with-gnu-ld --enable-target-optspace --disable-libgomp --disable-libmudflap --disable-multilib --disable-nls --without-isl --without-cloog --with-host-libstdcxx=-lstdc++ --with-gmp=/home/yuxyun/work/tina/out/host --with-mpfr=/home/yuxyun/work/tina/out/host --with-mpc=/home/yuxyun/work/tina/out/host --disable-decimal-float --with-diagnostics-color=auto-if-env --disable-libssp --enable-__cxa_atexit --with-arch=armv7-a --with-float=hard --with-headers=/home/yuxyun/work/tina/out/astar-parrot/staging_dir/toolchain/include --disable-libsanitizer --enable-languages=c,c++ --enable-shared --enable-threads --with-slibdir=/home/yuxyun/work/tina/out/astar-parrot/staging_dir/toolchain/lib --enable-lto --with-libelf=/home/yuxyun/work/tina/out/host
+Thread model: posix
+gcc version 5.2.0 (OpenWrt GCC 5.2.0 70-1-1)

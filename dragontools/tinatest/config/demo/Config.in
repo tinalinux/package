@@ -1,0 +1,8 @@
+config TINATEST_DEMO
+    bool "Enable"
+    default n
+
+if TINATEST_DEMO
+    source Config-demo-c.in
+    source Config-demo-sh.in
+endif

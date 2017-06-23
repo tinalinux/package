@@ -1,0 +1,7 @@
+config TINATEST_BASE
+    bool "Enable"
+
+if TINATEST_BASE
+    source Config-sdcard.in
+    source Config-battery.in
+endif

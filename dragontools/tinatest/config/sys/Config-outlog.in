@@ -1,0 +1,16 @@
+menu 'outlog'
+#===== serial =====
+config TINATEST_SYS_GLOBAL_INFO_OUTLOG_SERIAL
+	bool "outlog_serial"
+	default y
+#===== markdown =====
+config TINATEST_SYS_GLOBAL_INFO_OUTLOG_MARKDOWN_ENABLE
+	bool "outlog_markdown"
+	default n
+
+	if TINATEST_SYS_GLOBAL_INFO_OUTLOG_MARKDOWN_ENABLE
+		config	TINATEST_SYS_GLOBAL_INFO_OUTLOG_MARKDOWN_OUTDIR
+			string "outdir"
+			default "/mnt/UDISK/md"
+	endif
+endmenu

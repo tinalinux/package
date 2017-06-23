@@ -1,0 +1,81 @@
+menu 'rw-loop'
+    config TINATEST_STRESS_RW_RW_LOOP_ENABLE
+        bool "Enable"
+        default n
+
+    if TINATEST_STRESS_RW_RW_LOOP_ENABLE
+        config TINATEST_STRESS_RW_RW_LOOP_COMMAND
+            string "command"
+            default "rw-loop.sh"
+
+        config TINATEST_STRESS_RW_RW_LOOP_STDIN
+            string "stdin"
+            default ""
+
+        config TINATEST_STRESS_RW_RW_LOOP_FSTDIN
+            string "fstdin"
+            default ""
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_STRESS_RW_RW_LOOP_INFO
+            bool "INFO"
+            default y
+
+        if TINATEST_STRESS_RW_RW_LOOP_INFO
+            config TINATEST_STRESS_RW_RW_LOOP_DATE
+                bool "date"
+                default y if TINATEST_SYS_LOCAL_INFO_DATE
+
+            config TINATEST_STRESS_RW_RW_LOOP_RESOURCE
+                bool "resource"
+                default y if TINATEST_SYS_LOCAL_INFO_RESOURCE
+        endif
+
+        comment "<N> to Default && <Y> to customize"
+        config TINATEST_STRESS_RW_RW_LOOP_LIMIT
+            bool "LIMIT"
+            default y
+
+        if TINATEST_STRESS_RW_RW_LOOP_LIMIT
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_TIMES
+                string "run_times"
+                default 5
+
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_ALONE
+                bool "run_alone"
+                default y
+
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_PARALLEL
+                bool "run_parallel"
+                default y if TINATEST_SYS_LOCAL_LIMIT_RUN_PARALLEN
+
+            config TINATEST_STRESS_RW_RW_LOOP_MAY_REBOOT
+                bool "may_reboot"
+                default y
+
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_TIME_SEC
+                string "run_time_sec"
+                default 0
+
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_TIME_MIN
+                string "run_time_min"
+                default 60
+
+            config TINATEST_STRESS_RW_RW_LOOP_RUN_TIME_HOUR
+                string "run_time_hour"
+                default "Default"
+        endif
+
+        config TINATEST_STRESS_RW_RW_LOOP_BEGIN_SIZE
+            string "begin_size"
+            default "2k"
+
+        config TINATEST_STRESS_RW_RW_LOOP_END_SIZE
+            string "end_size"
+            default "512m"
+
+        config TINATEST_STRESS_RW_RW_LOOP_CHECK_DIRECTORY
+            string "check_directory"
+            default "/mnt/UDISK"
+    endif
+endmenu

@@ -1,0 +1,9 @@
+menu 'rw'
+config TINATEST_STRESS_RW
+    bool "Enable"
+
+if TINATEST_STRESS_RW
+    source Config-rw-auto.in
+    source Config-rw-loop.in
+endif
+endmenu

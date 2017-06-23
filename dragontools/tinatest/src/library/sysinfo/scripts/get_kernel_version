@@ -1,0 +1,7 @@
+SYS_SAVE_PATH="/tmp/sys.info"
+SYS_SH_PATH="/usr/bin/sysinfo"
+if [ ! -f ${SYS_SAVE_PATH} ]; then
+    [ -f ${SYS_SH_PATH} ] && eval ${SYS_SH_PATH} ${SYS_SAVE_PATH} || return 1
+fi
+
+cat ${SYS_SAVE_PATH} | sed -n '1p'
